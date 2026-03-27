@@ -356,9 +356,15 @@ footer {
     padding: 0 16px;
   }
 
+  .container {
+    margin-top: 22px;
+    min-height: calc(100svh - 250px);
+    align-items: center;
+  }
+
   .card {
-    width: min(92vw, 460px);
-    padding: 22px;
+    width: min(94vw, 520px);
+    padding: 24px;
   }
 
   .social-strip {
@@ -368,7 +374,7 @@ footer {
 
 @media (max-width: 768px) {
   .hero {
-    margin-top: 108px;
+    margin-top: 96px;
   }
 
   .hero h1 {
@@ -380,13 +386,15 @@ footer {
   }
 
   .container {
-    margin-top: 28px;
+    margin-top: 16px;
+    min-height: calc(100svh - 232px);
+    align-items: center;
   }
 
   .card {
-    width: min(94vw, 430px);
+    width: min(95vw, 500px);
     border-radius: 18px;
-    padding: 20px;
+    padding: 22px;
   }
 
   .social-strip a {
@@ -408,7 +416,7 @@ footer {
   }
 
   .hero {
-    margin-top: 102px;
+    margin-top: 90px;
   }
 
   .hero h1 {
@@ -420,14 +428,15 @@ footer {
   }
 
   .container {
-    margin-top: 16px;
-    min-height: calc(100svh - 260px);
+    margin-top: 10px;
+    min-height: calc(100svh - 216px);
     align-items: center;
   }
 
   .card {
     border-radius: 16px;
-    padding: 18px;
+    width: min(95vw, 460px);
+    padding: 20px;
   }
 
   .social-strip a {
@@ -439,7 +448,7 @@ footer {
 
 @media (max-width: 480px) {
   .container {
-    min-height: calc(100svh - 244px);
+    min-height: calc(100svh - 204px);
   }
 
   .hero h1 {
