@@ -4,41 +4,141 @@ let teamData = [];
 const eventAPI = "https://opensheet.elk.sh/1G0kQL9J3e8Wn3CxjJEQr91dOfWscOoGFAGF1GvYgbxE/Sheet1";
 const teamAPI = "https://opensheet.elk.sh/1G0kQL9J3e8Wn3CxjJEQr91dOfWscOoGFAGF1GvYgbxE/Team";
 
+// Normalize helper
 function normalize(value) {
   return String(value || "").toLowerCase().trim();
 }
 
-// Load data
-async function loadData() {
-  eventData = await fetch(eventAPI).then((r) => r.json());
-  teamData = await fetch(teamAPI).then((r) => r.json());
+function getYearValue(item) {
+  const knownValue =
+    item.Year ||
+    item.year ||
+    item.YEAR ||
+    item["Academic Year"] ||
+    item.Batch ||
+    item.Class ||
+    item["Study Year"];
 
+  if (String(knownValue || "").trim()) {
+    return String(knownValue).trim();
+  }
+
+  // Fallback for unexpected header variants like "Year ", "academic year", etc.
+  const yearLikeKey = Object.keys(item).find((key) => {
+    const normalizedKey = normalize(key).replace(/\s+/g, " ");
+    return normalizedKey === "year" || normalizedKey.includes("year");
+  });
+
+  return yearLikeKey ? String(item[yearLikeKey] || "").trim() : "";
+}
+
+function getFilteredEventRows() {
+  const selectedYear = normalize(document.getElementById("year").value);
+  const selectedEvent = normalize(document.getElementById("event").value);
+
+  return eventData.filter((item) => {
+    const year = normalize(getYearValue(item));
+    const event = normalize(item.Event);
+    const yearMatch = !selectedYear || year === selectedYear;
+    const eventMatch = !selectedEvent || event === selectedEvent;
+    return yearMatch && eventMatch;
+  });
+}
+
+function applyCustomEventOrder(events) {
+  const customOrder = [
+    "Introduction to Microsoft Azure",
+    "Introduction to GitHub",
+    "Build & Deploy with VSC & GitHub",
+    ".NET Conf 2024 Amravati",
+    ".NET Conf 2025 Amravati",
+    "Copilot Dev Days",
+    "Microsoft Explore AI",
+    "Global AI Bootcamp Amravati"
+  ];
+
+  const sortedEvents = customOrder.filter((e) => events.includes(e));
+  const remainingEvents = events.filter((e) => !customOrder.includes(e));
+  return [...sortedEvents, ...remainingEvents];
+}
+
+function populateYearDropdown() {
+  const yearSelect = document.getElementById("year");
+  const years = [...new Set(eventData.map((item) => getYearValue(item)).filter(Boolean))]
+    .sort((a, b) => String(a).localeCompare(String(b), undefined, { numeric: true, sensitivity: "base" }));
+
+  yearSelect.innerHTML = "";
+
+  const defaultOption = document.createElement("option");
+  defaultOption.value = "";
+  defaultOption.textContent = "Select Year";
+  yearSelect.appendChild(defaultOption);
+
+  years.forEach((year) => {
+    const option = document.createElement("option");
+    option.value = year;
+    option.textContent = year;
+    yearSelect.appendChild(option);
+  });
+}
+
+function populateEventDropdown() {
   const eventSelect = document.getElementById("event");
-  const events = [...new Set(eventData.map((e) => e.Event).filter(Boolean))];
+  const selectedYear = normalize(document.getElementById("year").value);
+
+  const uniqueEvents = [
+    ...new Set(
+      eventData
+        .filter((item) => !selectedYear || normalize(getYearValue(item)) === selectedYear)
+        .map((item) => item.Event)
+        .filter(Boolean)
+    )
+  ];
+
+  const finalEvents = applyCustomEventOrder(uniqueEvents);
   eventSelect.innerHTML = "";
 
-  events.forEach((e) => {
-    let option = document.createElement("option");
-    option.textContent = e;
+  const defaultOption = document.createElement("option");
+  defaultOption.value = "";
+  defaultOption.textContent = "Select Event";
+  eventSelect.appendChild(defaultOption);
+
+  finalEvents.forEach((eventName) => {
+    const option = document.createElement("option");
+    option.value = eventName;
+    option.textContent = eventName;
     eventSelect.appendChild(option);
   });
 }
 
+// 🚀 Load Data + Custom Event Order
+async function loadData() {
+  eventData = await fetch(eventAPI).then((r) => r.json());
+  teamData = await fetch(teamAPI).then((r) => r.json());
+
+  populateYearDropdown();
+  populateEventDropdown();
+}
+
 loadData();
 
-// Verify
+// ✅ Verify
 function verify() {
   let type = document.getElementById("type").value;
   let result = document.getElementById("result");
   let matchedRecord = null;
 
   if (type === "event") {
+    const inputYear = document.getElementById("year").value.trim();
     const inputEvent = document.getElementById("event").value.trim();
     const inputName = document.getElementById("eventName").value.trim();
+
+    let year = normalize(inputYear);
     let event = normalize(inputEvent);
     let name = normalize(inputName);
 
     matchedRecord = eventData.find((e) =>
+      normalize(getYearValue(e)) === year &&
       normalize(e.Event) === event &&
       normalize(e.Name) === name
     );
@@ -51,14 +151,15 @@ function verify() {
   }
 
   result.className = matchedRecord ? "success" : "error";
+
   result.innerHTML = matchedRecord
     ? (type === "event"
-      ? `✅ ${document.getElementById("eventName").value.trim()} participated in the event ${document.getElementById("event").value.trim()}.`
-      : `✅ ${document.getElementById("teamName").value.trim()} is a verified team member.`)
+        ? `✅ ${document.getElementById("eventName").value.trim()} participated in the event ${document.getElementById("event").value.trim()}.`
+        : `✅ ${document.getElementById("teamName").value.trim()} is a verified team member.`)
     : "❌ Record not found. Please contact admin.";
 }
 
-// Decrypt effect
+// 🔐 Decrypt Effect
 function scramble(el, text) {
   const chars = "0123456789@#$%&*";
   let iteration = 0;
@@ -66,7 +167,9 @@ function scramble(el, text) {
   const interval = setInterval(() => {
     el.innerText = text
       .split("")
-      .map((c, i) => i < iteration ? text[i] : chars[Math.floor(Math.random()*chars.length)])
+      .map((c, i) =>
+        i < iteration ? text[i] : chars[Math.floor(Math.random() * chars.length)]
+      )
       .join("");
 
     iteration += 0.5;
@@ -78,11 +181,12 @@ function scramble(el, text) {
   }, 35);
 }
 
-document.querySelectorAll(".decrypt").forEach(link => {
+document.querySelectorAll(".decrypt").forEach((link) => {
   const text = link.innerText;
   link.addEventListener("mouseenter", () => scramble(link, text));
 });
 
+// 🔍 Suggestion Renderer
 function renderSuggestions(list, boxId, inputId) {
   const box = document.getElementById(boxId);
   box.innerHTML = "";
@@ -90,55 +194,86 @@ function renderSuggestions(list, boxId, inputId) {
   list.slice(0, 6).forEach((item) => {
     const div = document.createElement("div");
     div.textContent = item.Name;
+
     div.addEventListener("click", () => {
       document.getElementById(inputId).value = item.Name;
       box.innerHTML = "";
     });
+
     box.appendChild(div);
   });
 }
 
+// 🔍 Event Suggestions
 document.getElementById("eventName").addEventListener("input", function () {
   const value = normalize(this.value);
+  const selectedYear = normalize(document.getElementById("year").value);
   const selectedEvent = normalize(document.getElementById("event").value);
-  const suggestionsBox = document.getElementById("suggestions");
 
   if (!value) {
-    suggestionsBox.innerHTML = "";
+    document.getElementById("suggestions").innerHTML = "";
     return;
   }
 
   const filtered = eventData.filter((item) => {
+    const sameYear = !selectedYear || normalize(getYearValue(item)) === selectedYear;
     const sameEvent = !selectedEvent || normalize(item.Event) === selectedEvent;
-    return sameEvent && normalize(item.Name).includes(value);
+    return sameYear && sameEvent && normalize(item.Name).includes(value);
   });
 
   renderSuggestions(filtered, "suggestions", "eventName");
 });
 
+document.getElementById("year").addEventListener("change", () => {
+  populateEventDropdown();
+  document.getElementById("eventName").value = "";
+  document.getElementById("suggestions").innerHTML = "";
+  document.getElementById("result").innerHTML = "";
+  document.getElementById("result").className = "";
+});
+
+document.getElementById("event").addEventListener("change", () => {
+  document.getElementById("eventName").value = "";
+  document.getElementById("suggestions").innerHTML = "";
+});
+
+// 🔍 Team Suggestions
 document.getElementById("teamName").addEventListener("input", function () {
   const value = normalize(this.value);
-  const suggestionsBox = document.getElementById("teamSuggestions");
 
   if (!value) {
-    suggestionsBox.innerHTML = "";
+    document.getElementById("teamSuggestions").innerHTML = "";
     return;
   }
 
-  const filtered = teamData.filter((item) => normalize(item.Name).includes(value));
+  const filtered = teamData.filter((item) =>
+    normalize(item.Name).includes(value)
+  );
+
   renderSuggestions(filtered, "teamSuggestions", "teamName");
 });
 
+// 🔄 Switch UI
 document.getElementById("type").addEventListener("change", function () {
   const isEvent = this.value === "event";
+
   document.getElementById("eventBox").style.display = isEvent ? "block" : "none";
   document.getElementById("teamBox").style.display = isEvent ? "none" : "block";
+
+  document.getElementById("result").innerHTML = "";
   document.getElementById("result").className = "";
-  document.getElementById("result").textContent = "";
+
   document.getElementById("suggestions").innerHTML = "";
   document.getElementById("teamSuggestions").innerHTML = "";
+
+  if (isEvent) {
+    document.getElementById("year").value = "";
+    populateEventDropdown();
+    document.getElementById("eventName").value = "";
+  }
 });
 
+// 🧼 Close suggestions when clicking outside
 document.addEventListener("click", (event) => {
   if (!event.target.closest("#eventBox") && !event.target.closest("#teamBox")) {
     document.getElementById("suggestions").innerHTML = "";
@@ -146,60 +281,21 @@ document.addEventListener("click", (event) => {
   }
 });
 
+// 🍔 Mobile Menu
 function toggleMenu() {
   const mobileMenu = document.getElementById("mobileMenu");
   const hamburger = document.querySelector(".hamburger");
-  if (!mobileMenu) {
-    return;
-  }
 
   const isOpen = mobileMenu.classList.toggle("open");
-  if (hamburger) {
-    hamburger.classList.toggle("active", isOpen);
-    hamburger.setAttribute("aria-expanded", String(isOpen));
-  }
+
+  hamburger.classList.toggle("active", isOpen);
+  hamburger.setAttribute("aria-expanded", String(isOpen));
 }
 
+// Close mobile menu on link click
 document.querySelectorAll("#mobileMenu .nav-link").forEach((link) => {
   link.addEventListener("click", () => {
-    const mobileMenu = document.getElementById("mobileMenu");
-    const hamburger = document.querySelector(".hamburger");
-    if (mobileMenu) {
-      mobileMenu.classList.remove("open");
-    }
-    if (hamburger) {
-      hamburger.classList.remove("active");
-      hamburger.setAttribute("aria-expanded", "false");
-    }
+    document.getElementById("mobileMenu").classList.remove("open");
+    document.querySelector(".hamburger").classList.remove("active");
   });
-});
-
-document.addEventListener("click", (event) => {
-  const mobileMenu = document.getElementById("mobileMenu");
-  const hamburger = document.querySelector(".hamburger");
-  if (!mobileMenu || !hamburger) {
-    return;
-  }
-
-  const clickedInsideMenu = event.target.closest("#mobileMenu");
-  const clickedHamburger = event.target.closest(".hamburger");
-  if (!clickedInsideMenu && !clickedHamburger) {
-    mobileMenu.classList.remove("open");
-    hamburger.classList.remove("active");
-    hamburger.setAttribute("aria-expanded", "false");
-  }
-});
-
-window.addEventListener("resize", () => {
-  if (window.innerWidth > 992) {
-    const mobileMenu = document.getElementById("mobileMenu");
-    const hamburger = document.querySelector(".hamburger");
-    if (mobileMenu) {
-      mobileMenu.classList.remove("open");
-    }
-    if (hamburger) {
-      hamburger.classList.remove("active");
-      hamburger.setAttribute("aria-expanded", "false");
-    }
-  }
 });
