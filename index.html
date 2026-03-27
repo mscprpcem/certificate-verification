@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Certificate Verification | MSC PRPCEM</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<!-- NAVBAR -->
+<header class="navbar" id="navbar">
+  <div class="nav-container">
+    
+    <a href="https://www.mscprpcem.tech" class="navbar-brand">
+      <img src="assets/MSC_logo.png" class="navbar-logo" />
+    </a>
+
+    <div class="nav-links">
+      <a href="https://www.mscprpcem.tech" class="nav-link decrypt">Home</a>
+      <a href="#" class="nav-link decrypt">Verify</a>
+    </div>
+
+    <button class="hamburger" type="button" onclick="toggleMenu()" aria-controls="mobileMenu" aria-expanded="false" aria-label="Toggle navigation menu">
+      <span></span>
+      <span></span>
+      <span></span>
+    </button>
+
+  </div>
+
+  <div class="mobile-menu" id="mobileMenu">
+    <a href="https://www.mscprpcem.tech" class="nav-link decrypt">Home</a>
+    <a href="#" class="nav-link decrypt">Verify</a>
+  </div>
+</header>
+
+<!-- HERO -->
+<section class="hero">
+  <span class="badge">STUDENT-LED TECH COMMUNITY</span>
+  <h1>Certificate Verification</h1>
+  <p>Verify your participation or team membership instantly</p>
+</section>
+
+<!-- MAIN CARD -->
+<div class="container">
+  <div class="card">
+
+    <select id="type">
+      <option value="event">Event Verification</option>
+      <option value="team">Team Member Verification</option>
+    </select>
+
+    <div id="eventBox">
+      <select id="event"></select>
+      <input type="text" id="eventName" placeholder="Search your name...">
+      <div id="suggestions" class="suggestions"></div>
+    </div>
+
+    <div id="teamBox" style="display:none;">
+      <input type="text" id="teamName" placeholder="Search your name...">
+      <div id="teamSuggestions" class="suggestions"></div>
+    </div>
+
+    <button onclick="verify()">Verify</button>
+
+    <div id="result"></div>
+
+  </div>
+</div>
+
+<section class="social-strip" aria-label="Social links">
+  <a href="https://www.instagram.com/" target="_blank" rel="noopener noreferrer" aria-label="Instagram" class="social-link instagram">
+    <i class="fa-brands fa-instagram" aria-hidden="true"></i>
+    <span>Instagram</span>
+  </a>
+  <a href="https://www.meetup.com/" target="_blank" rel="noopener noreferrer" aria-label="Meetup" class="social-link meetup">
+    <i class="fa-brands fa-meetup" aria-hidden="true"></i>
+    <span>Meetup</span>
+  </a>
+  <a href="https://wa.me/" target="_blank" rel="noopener noreferrer" aria-label="WhatsApp" class="social-link whatsapp">
+    <i class="fa-brands fa-whatsapp" aria-hidden="true"></i>
+    <span>WhatsApp</span>
+  </a>
+</section>
+
+<footer>
+  © 2026 MSC PRPCEM
+</footer>
+
+<script src="script.js"></script>
+</body>
+</html>
