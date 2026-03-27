@@ -9,6 +9,27 @@ function normalize(value) {
   return String(value || "").toLowerCase().trim();
 }
 
+function getNameValue(item) {
+  const knownValue =
+    item.Name ||
+    item["Name "] ||
+    item.name ||
+    item.NAME ||
+    item["Full Name"] ||
+    item["Member Name"];
+
+  if (String(knownValue || "").trim()) {
+    return String(knownValue).trim();
+  }
+
+  const nameLikeKey = Object.keys(item).find((key) => {
+    const normalizedKey = normalize(key).replace(/\s+/g, " ");
+    return normalizedKey === "name" || normalizedKey.includes("name");
+  });
+
+  return nameLikeKey ? String(item[nameLikeKey] || "").trim() : "";
+}
+
 function getYearValue(item) {
   const knownValue =
     item.Year ||
@@ -111,6 +132,26 @@ function populateEventDropdown() {
   });
 }
 
+function populateTeamYearDropdown() {
+  const teamYearSelect = document.getElementById("teamYear");
+  const years = [...new Set(teamData.map((item) => getYearValue(item)).filter(Boolean))]
+    .sort((a, b) => String(a).localeCompare(String(b), undefined, { numeric: true, sensitivity: "base" }));
+
+  teamYearSelect.innerHTML = "";
+
+  const defaultOption = document.createElement("option");
+  defaultOption.value = "";
+  defaultOption.textContent = "Select Team Year";
+  teamYearSelect.appendChild(defaultOption);
+
+  years.forEach((year) => {
+    const option = document.createElement("option");
+    option.value = year;
+    option.textContent = year;
+    teamYearSelect.appendChild(option);
+  });
+}
+
 // 🚀 Load Data + Custom Event Order
 async function loadData() {
   eventData = await fetch(eventAPI).then((r) => r.json());
@@ -118,6 +159,7 @@ async function loadData() {
 
   populateYearDropdown();
   populateEventDropdown();
+  populateTeamYearDropdown();
 }
 
 loadData();
@@ -140,13 +182,15 @@ function verify() {
     matchedRecord = eventData.find((e) =>
       normalize(getYearValue(e)) === year &&
       normalize(e.Event) === event &&
-      normalize(e.Name) === name
+      normalize(getNameValue(e)) === name
     );
   } else {
+    const selectedTeamYear = normalize(document.getElementById("teamYear").value);
     let name = normalize(document.getElementById("teamName").value);
 
     matchedRecord = teamData.find((e) =>
-      normalize(e.Name) === name
+      normalize(getYearValue(e)) === selectedTeamYear &&
+      normalize(getNameValue(e)) === name
     );
   }
 
@@ -155,7 +199,7 @@ function verify() {
   result.innerHTML = matchedRecord
     ? (type === "event"
         ? `✅ ${document.getElementById("eventName").value.trim()} participated in the event ${document.getElementById("event").value.trim()}.`
-        : `✅ ${document.getElementById("teamName").value.trim()} is a verified team member.`)
+      : `✅ ${document.getElementById("teamName").value.trim()} is verified in ${document.getElementById("teamYear").value.trim()} as ${matchedRecord.Domain || "Team Member"}.`)
     : "❌ Record not found. Please contact admin.";
 }
 
@@ -193,10 +237,10 @@ function renderSuggestions(list, boxId, inputId) {
 
   list.slice(0, 6).forEach((item) => {
     const div = document.createElement("div");
-    div.textContent = item.Name;
+    div.textContent = getNameValue(item);
 
     div.addEventListener("click", () => {
-      document.getElementById(inputId).value = item.Name;
+      document.getElementById(inputId).value = getNameValue(item);
       box.innerHTML = "";
     });
 
@@ -218,7 +262,7 @@ document.getElementById("eventName").addEventListener("input", function () {
   const filtered = eventData.filter((item) => {
     const sameYear = !selectedYear || normalize(getYearValue(item)) === selectedYear;
     const sameEvent = !selectedEvent || normalize(item.Event) === selectedEvent;
-    return sameYear && sameEvent && normalize(item.Name).includes(value);
+    return sameYear && sameEvent && normalize(getNameValue(item)).includes(value);
   });
 
   renderSuggestions(filtered, "suggestions", "eventName");
@@ -240,6 +284,7 @@ document.getElementById("event").addEventListener("change", () => {
 // 🔍 Team Suggestions
 document.getElementById("teamName").addEventListener("input", function () {
   const value = normalize(this.value);
+  const selectedTeamYear = normalize(document.getElementById("teamYear").value);
 
   if (!value) {
     document.getElementById("teamSuggestions").innerHTML = "";
@@ -247,10 +292,18 @@ document.getElementById("teamName").addEventListener("input", function () {
   }
 
   const filtered = teamData.filter((item) =>
-    normalize(item.Name).includes(value)
+    (!selectedTeamYear || normalize(getYearValue(item)) === selectedTeamYear) &&
+    normalize(getNameValue(item)).includes(value)
   );
 
   renderSuggestions(filtered, "teamSuggestions", "teamName");
+});
+
+document.getElementById("teamYear").addEventListener("change", () => {
+  document.getElementById("teamName").value = "";
+  document.getElementById("teamSuggestions").innerHTML = "";
+  document.getElementById("result").innerHTML = "";
+  document.getElementById("result").className = "";
 });
 
 // 🔄 Switch UI
@@ -270,6 +323,9 @@ document.getElementById("type").addEventListener("change", function () {
     document.getElementById("year").value = "";
     populateEventDropdown();
     document.getElementById("eventName").value = "";
+  } else {
+    document.getElementById("teamYear").value = "";
+    document.getElementById("teamName").value = "";
   }
 });
 
