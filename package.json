@@ -1,0 +1,10 @@
+{
+  "name": "msc-credential-platform",
+  "version": "1.0.0",
+  "description": "Microsoft Student Club Credential Engine & Wallet Portal",
+  "scripts": {
+    "backend": "cd backend && npm start",
+    "frontend": "cd frontend && npm run dev",
+    "dev": "npx -y concurrently \"npm run backend\" \"npm run frontend\""
+  }
+}
