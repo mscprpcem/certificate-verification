@@ -14,12 +14,37 @@ class CredentialRepository {
   }
 
   async findByRecipientNameAndEvent(name, year, eventName) {
+    const cleanName = (name || '').toLowerCase().trim();
+    const cleanEvent = (eventName || '').toLowerCase().trim();
+    const cleanYear = (year || '').trim();
+
+    // 1. Primary search: Name AND Event Name title match (Top Priority)
+    if (cleanEvent) {
+      let sql = `SELECT * FROM credentials WHERE LOWER(recipient_name) = ? AND type = 'certificate' AND LOWER(title) LIKE ?`;
+      const params = [cleanName, `%${cleanEvent}%`];
+
+      if (cleanYear) {
+        let sqlWithYear = sql + ` AND (issue_date LIKE ? OR id LIKE ?) ORDER BY created_at DESC LIMIT 1`;
+        const resWithYear = await dbGet(sqlWithYear, [...params, `%${cleanYear}%`, `%${cleanYear}%`]);
+        if (resWithYear) return resWithYear;
+      }
+
+      sql += ` ORDER BY created_at DESC LIMIT 1`;
+      const res = await dbGet(sql, params);
+      if (res) return res;
+    }
+
+    // 2. Secondary search: Name AND Year match
+    if (cleanYear) {
+      let sql = `SELECT * FROM credentials WHERE LOWER(recipient_name) = ? AND type = 'certificate' AND (issue_date LIKE ? OR id LIKE ?) ORDER BY created_at DESC LIMIT 1`;
+      const res = await dbGet(sql, [cleanName, `%${cleanYear}%`, `%${cleanYear}%`]);
+      if (res) return res;
+    }
+
+    // 3. Fallback search: Name match
     return await dbGet(
-      `SELECT * FROM credentials 
-       WHERE LOWER(recipient_name) = ? 
-       AND type = 'certificate'
-       AND (issue_date LIKE ? OR title = ? OR ? = '')`,
-      [name.toLowerCase().trim(), `%${year}%`, eventName, eventName || ""]
+      `SELECT * FROM credentials WHERE LOWER(recipient_name) = ? AND type = 'certificate' ORDER BY created_at DESC LIMIT 1`,
+      [cleanName]
     );
   }
 

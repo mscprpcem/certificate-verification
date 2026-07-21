@@ -10,6 +10,8 @@ export default function BadgeDetail({
   if (!credential) return null;
 
   const isBadge = credential.type === 'badge';
+  const isNetConf = (credential.title || '').toLowerCase().includes('.net') || 
+                    (credential.category || '').toLowerCase().includes('.net');
   const skills = (credential.skills_list || 'Logic, Problem Solving, Technology').split(',');
 
   return (
@@ -108,51 +110,130 @@ export default function BadgeDetail({
           </div>
         </div>
       ) : (
-        /* Certificate Detail Split Layout exactly like requested */
+        /* Certificate Detail Split Layout */
         <div className="certificate-split-detail">
           
-          {/* Left Panel: High Fidelity Certificate Mock Preview */}
-          <div className="certificate-preview-card" style={{ padding: '12px' }}>
-            <div className="certificate-inner" style={{ padding: '36px 20px', border: '3px solid #e2e8f0' }}>
-              <div className="cert-logo-container" style={{ marginBottom: '12px' }}>
-                <img src="/assets/MSC_logo.png" alt="MSC Logo" style={{ height: '24px' }} />
-                <h4 style={{ fontSize: '10px' }}>MICROSOFT STUDENT CLUB PRPCEM</h4>
-              </div>
-              
-              <div className="cert-title-label" style={{ fontSize: '9px', letterSpacing: '1px', marginBottom: '8px' }}>
-                Certificate of Achievement
-              </div>
-              
-              <p className="cert-text-detail" style={{ fontSize: '10px', marginBottom: '4px' }}>This certifies that the recipient</p>
-              <div className="cert-name-label" style={{ fontSize: '20px', marginBottom: '4px' }}>{credential.recipient_name}</div>
-              
-              <p className="cert-text-detail" style={{ fontSize: '10px', marginBottom: '4px' }}>has successfully completed the program</p>
-              <div className="cert-course-title" style={{ fontSize: '14px', marginBottom: '12px' }}>{credential.title}</div>
-              
-              <p className="cert-text-detail" style={{ fontSize: '9px', lineHeight: 1.3, marginBottom: '24px' }}>
-                {credential.description}
-              </p>
+          {/* Left Panel: Certificate Mock Preview */}
+          {isNetConf ? (
+            /* .NET Conf 2025 SVG Template Preview */
+            <div className="certificate-preview-card" style={{ padding: '0', overflow: 'hidden', position: 'relative', borderRadius: '12px', boxShadow: '0 8px 24px rgba(0,0,0,0.12)' }}>
+              <img 
+                src="/assets/.NET%20Conf%202025.svg" 
+                alt=".NET Conf 2025 Certificate Template" 
+                style={{ width: '100%', height: 'auto', display: 'block' }}
+              />
 
-              <div className="cert-verified-stamp" style={{ bottom: '44px', right: '24px', fontSize: '8px', padding: '3px 8px' }}>
-                Verified Certificate
+              {/* Cover previous sample name in template */}
+              <div 
+                style={{
+                  position: 'absolute',
+                  top: '49.5%',
+                  left: '50%',
+                  transform: 'translate(-50%, -50%)',
+                  width: '60%',
+                  height: '13%',
+                  background: '#ffffff',
+                  zIndex: 1
+                }}
+              />
+
+              {/* Overlaid Recipient Name */}
+              <div 
+                style={{
+                  position: 'absolute',
+                  top: '49.5%',
+                  left: '50%',
+                  transform: 'translate(-50%, -50%)',
+                  width: '80%',
+                  textAlign: 'center',
+                  fontWeight: 800,
+                  fontSize: 'clamp(14px, 2.5vw, 24px)',
+                  color: '#0f172a',
+                  fontFamily: 'Outfit, sans-serif',
+                  zIndex: 2
+                }}
+              >
+                {credential.recipient_name}
               </div>
 
-              <div className="cert-meta-bottom" style={{ marginTop: '0', paddingTop: '10px' }}>
-                <div className="cert-meta-item">
-                  <div className="label" style={{ fontSize: '8px' }}>Date Issued</div>
-                  <div className="val" style={{ fontSize: '9px' }}>{credential.issue_date}</div>
+              {/* Bottom Verification Protocol Bar */}
+              <div
+                style={{
+                  position: 'absolute',
+                  bottom: '2.5%',
+                  left: '50%',
+                  transform: 'translateX(-50%)',
+                  width: '92%',
+                  background: '#ffffff',
+                  border: '1px solid #512bd4',
+                  borderRadius: '8px',
+                  padding: '6px 12px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+                  zIndex: 2
+                }}
+              >
+                <div style={{ textAlign: 'left' }}>
+                  <div style={{ fontSize: '9px', fontWeight: 800, color: '#512bd4', letterSpacing: '0.5px' }}>OFFICIAL VERIFICATION PROTOCOL</div>
+                  <div style={{ fontSize: '9px', fontWeight: 600, color: '#1e293b' }}>
+                    {window.location.origin}?verifyId={credential.id}
+                  </div>
                 </div>
-                <div className="cert-meta-item">
-                  <div className="label" style={{ fontSize: '8px' }}>Credential ID</div>
-                  <div className="val" style={{ fontSize: '9px', fontFamily: 'monospace' }}>{credential.id}</div>
-                </div>
-                <div className="cert-meta-item">
-                  <div className="label" style={{ fontSize: '8px' }}>MSC Chapter</div>
-                  <div className="cert-signature-name" style={{ fontSize: '10px' }}>Club President</div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <img
+                    src={`https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=${encodeURIComponent(window.location.origin + '?verifyId=' + credential.id)}`}
+                    alt="QR Code"
+                    style={{ width: '38px', height: '38px', borderRadius: '4px' }}
+                  />
                 </div>
               </div>
             </div>
-          </div>
+          ) : (
+            /* Standard Certificate Mock Preview for non-.NET events */
+            <div className="certificate-preview-card" style={{ padding: '12px' }}>
+              <div className="certificate-inner" style={{ padding: '36px 20px', border: '3px solid #e2e8f0' }}>
+                <div className="cert-logo-container" style={{ marginBottom: '12px' }}>
+                  <img src="/assets/MSC_logo.png" alt="MSC Logo" style={{ height: '24px' }} />
+                  <h4 style={{ fontSize: '10px' }}>MICROSOFT STUDENT CLUB PRPCEM</h4>
+                </div>
+                
+                <div className="cert-title-label" style={{ fontSize: '9px', letterSpacing: '1px', marginBottom: '8px' }}>
+                  Certificate of Achievement
+                </div>
+                
+                <p className="cert-text-detail" style={{ fontSize: '10px', marginBottom: '4px' }}>This certifies that the recipient</p>
+                <div className="cert-name-label" style={{ fontSize: '20px', marginBottom: '4px' }}>{credential.recipient_name}</div>
+                
+                <p className="cert-text-detail" style={{ fontSize: '10px', marginBottom: '4px' }}>has successfully completed the program</p>
+                <div className="cert-course-title" style={{ fontSize: '14px', marginBottom: '12px' }}>{credential.title}</div>
+                
+                <p className="cert-text-detail" style={{ fontSize: '9px', lineHeight: 1.3, marginBottom: '24px' }}>
+                  {credential.description}
+                </p>
+
+                <div className="cert-verified-stamp" style={{ bottom: '44px', right: '24px', fontSize: '8px', padding: '3px 8px' }}>
+                  Verified Certificate
+                </div>
+
+                <div className="cert-meta-bottom" style={{ marginTop: '0', paddingTop: '10px' }}>
+                  <div className="cert-meta-item">
+                    <div className="label" style={{ fontSize: '8px' }}>Date Issued</div>
+                    <div className="val" style={{ fontSize: '9px' }}>{credential.issue_date}</div>
+                  </div>
+                  <div className="cert-meta-item">
+                    <div className="label" style={{ fontSize: '8px' }}>Credential ID</div>
+                    <div className="val" style={{ fontSize: '9px', fontFamily: 'monospace' }}>{credential.id}</div>
+                  </div>
+                  <div className="cert-meta-item">
+                    <div className="label" style={{ fontSize: '8px' }}>MSC Chapter</div>
+                    <div className="cert-signature-name" style={{ fontSize: '10px' }}>Club President</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Right Panel: Detail Fields */}
           <div className="admin-card" style={{ height: '100%' }}>

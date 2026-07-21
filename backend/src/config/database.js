@@ -356,7 +356,70 @@ async function initDatabase() {
         console.error("Failed to fetch sheet APIs: status not OK.");
       }
     } catch (err) {
-      console.error("Sheets seeding failed:", err.message);
+      console.error("Sheets seeding failed, using fallback default credentials:", err.message);
+    }
+
+    // Default fallback certificates if count is still 0
+    const credCheck = await dbGet("SELECT COUNT(*) as count FROM credentials");
+    if (credCheck.count === 0) {
+      const amit = await dbGet("SELECT id FROM users WHERE email = 'student@mscprpcem.tech'");
+      const amitId = amit ? amit.id : null;
+
+      const defaultCreds = [
+        {
+          id: "MSC-EVT-2026-00101",
+          name: "Amit Kumar Yadav",
+          email: "student@mscprpcem.tech",
+          userId: amitId,
+          type: "certificate",
+          title: "Copilot Dev Days",
+          category: "Event",
+          date: "10 July 2026",
+          desc: "Successfully completed the club program event Copilot Dev Days with excellence."
+        },
+        {
+          id: "MSC-EVT-2025-00102",
+          name: "Amit Kumar Yadav",
+          email: "student@mscprpcem.tech",
+          userId: amitId,
+          type: "certificate",
+          title: "GitLit — The Diwali Code Fest",
+          category: "Event",
+          date: "10 November 2025",
+          desc: "Verified participant in the GitLit — The Diwali Code Fest during the academic year 2025."
+        },
+        {
+          id: "MSC-EVT-2025-00103",
+          name: "Amit Kumar Yadav",
+          email: "student@mscprpcem.tech",
+          userId: amitId,
+          type: "certificate",
+          title: ".NET Conf 2025 Amravati",
+          category: "Event",
+          date: "09 January 2026",
+          desc: "Verified participant in .NET Conf Amravati 2025, developer-focused conference on .NET and AI."
+        },
+        {
+          id: "MSC-TEAM-20252026-00101",
+          name: "Amit Kumar Yadav",
+          email: "student@mscprpcem.tech",
+          userId: amitId,
+          type: "badge",
+          title: "Core Team Badge",
+          category: "Badge",
+          date: "01 August 2025",
+          desc: "Issued to verified member of the MSC PRPCEM core team holding the role: Cloud Lead."
+        }
+      ];
+
+      for (const c of defaultCreds) {
+        await dbRun(
+          `INSERT OR IGNORE INTO credentials (id, recipient_name, recipient_email, user_id, type, title, category, issue_date, description, badge_icon, skills_list)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'fa-award', 'Technology, Collaboration')`,
+          [c.id, c.name, c.email, c.userId, c.type, c.title, c.category, c.date, c.desc]
+        );
+      }
+      console.log("Fallback credentials seeded successfully.");
     }
 
     // Seed Amit's Activity Logs

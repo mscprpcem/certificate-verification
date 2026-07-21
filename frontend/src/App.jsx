@@ -443,138 +443,224 @@ export default function App() {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
-    const ctx = canvas.getContext('2d');
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    const isNetConf = (cred.title || '').toLowerCase().includes('.net') || 
+                      (cred.category || '').toLowerCase().includes('.net');
 
-    // Render background
-    ctx.fillStyle = '#ffffff';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    if (isNetConf) {
+      // Set canvas dimensions to match SVG aspect ratio (842.25 x 595.5 -> 1685 x 1191 @2x)
+      canvas.width = 1685;
+      canvas.height = 1191;
 
-    // Borders
-    ctx.strokeStyle = '#2563eb';
-    ctx.lineWidth = 20;
-    ctx.strokeRect(30, 30, canvas.width - 60, canvas.height - 60);
+      const ctx = canvas.getContext('2d');
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    ctx.strokeStyle = '#d97706';
-    ctx.lineWidth = 4;
-    ctx.strokeRect(50, 50, canvas.width - 100, canvas.height - 100);
-
-    // Text
-    ctx.textAlign = 'center';
-    ctx.fillStyle = '#0f172a';
-    ctx.font = '800 24px Outfit, sans-serif';
-    ctx.fillText('MICROSOFT STUDENT CLUB PRPCEM', canvas.width / 2, 160);
-
-    ctx.fillStyle = '#2563eb';
-    ctx.font = '800 48px Outfit, sans-serif';
-    ctx.fillText(cred.type === 'badge' ? 'BADGE OF ACHIEVEMENT' : 'CERTIFICATE OF ACHIEVEMENT', canvas.width / 2, 280);
-
-    ctx.fillStyle = '#64748b';
-    ctx.font = 'italic 500 20px Georgia, serif';
-    ctx.fillText('This verified achievement is presented to', canvas.width / 2, 360);
-
-    ctx.fillStyle = '#0f172a';
-    ctx.font = '800 44px Outfit, sans-serif';
-    ctx.fillText(cred.recipient_name, canvas.width / 2, 440);
-
-    ctx.fillStyle = '#64748b';
-    ctx.font = '500 18px Manrope, sans-serif';
-    ctx.fillText('for successful completion of the weekly quiz / program', canvas.width / 2, 510);
-
-    ctx.fillStyle = '#2563eb';
-    ctx.font = '800 36px Outfit, sans-serif';
-    ctx.fillText(cred.title, canvas.width / 2, 570);
-
-    ctx.fillStyle = '#64748b';
-    ctx.font = '500 14px Manrope, sans-serif';
-    ctx.fillText(cred.description || '', canvas.width / 2, 620);
-
-    // Signatures (Shifted up slightly to fit verification protocol footer)
-    ctx.textAlign = 'left';
-    ctx.fillStyle = '#0f172a';
-    ctx.font = '700 16px Manrope, sans-serif';
-    ctx.fillText(`Issued: ${cred.issue_date}`, 120, 730);
-    ctx.font = '500 13px Manrope, sans-serif';
-    ctx.fillStyle = '#64748b';
-    ctx.fillText(`Credential ID: ${cred.id}`, 120, 760);
-
-    ctx.textAlign = 'right';
-    ctx.fillStyle = '#0f172a';
-    ctx.font = 'italic 700 18px Georgia, serif';
-    ctx.fillText('Club President', canvas.width - 120, 730);
-    ctx.font = '500 13px Manrope, sans-serif';
-    ctx.fillStyle = '#64748b';
-    ctx.fillText('Microsoft Student Club Chapter', canvas.width - 120, 760);
-
-    // Stamp
-    ctx.textAlign = 'center';
-    ctx.fillStyle = '#10b981';
-    ctx.beginPath();
-    ctx.arc(canvas.width / 2, 730, 45, 0, Math.PI * 2);
-    ctx.fill();
-
-    ctx.fillStyle = '#ffffff';
-    ctx.font = '800 12px Outfit, sans-serif';
-    ctx.fillText('VERIFIED', canvas.width / 2, 725);
-    ctx.font = '700 9px Outfit, sans-serif';
-    ctx.fillText('MSC SECURITY', canvas.width / 2, 742);
-
-    // Premium Divider line separating certificate body from Verification Protocol
-    ctx.strokeStyle = '#e2e8f0';
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.moveTo(100, 810);
-    ctx.lineTo(canvas.width - 100, 810);
-    ctx.stroke();
-
-    // Verification Info on bottom-left
-    const verifyUrl = `${window.location.origin}?verifyId=${cred.id}`;
-    ctx.textAlign = 'left';
-    ctx.fillStyle = '#2563eb';
-    ctx.font = '800 12px Outfit, sans-serif';
-    ctx.fillText('OFFICIAL VERIFICATION PROTOCOL', 120, 850);
-    ctx.font = '500 14px Manrope, sans-serif';
-    ctx.fillStyle = '#475569';
-    ctx.fillText('This achievement is cryptographically logged and registered in the Microsoft Student Club PRPCEM Registry.', 120, 880);
-    ctx.fillText('Scan the QR code or visit the verification portal below to check full-scope authenticity metadata.', 120, 905);
-    ctx.fillStyle = '#1e3a8a';
-    ctx.font = '700 14px Outfit, sans-serif';
-    ctx.fillText(`Verification Portal: ${verifyUrl}`, 120, 940);
-
-    // Fetch and Draw dynamic QR code image on the bottom-right corner
-    const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(verifyUrl)}`;
-    try {
-      const qrImg = await new Promise((resolve, reject) => {
+      // 1. Load and Draw .NET Conf 2025 SVG Template background
+      const svgPath = '/assets/.NET%20Conf%202025.svg';
+      const templateImg = await new Promise((resolve) => {
         const img = new Image();
-        img.crossOrigin = "anonymous";
+        img.crossOrigin = 'anonymous';
         img.onload = () => resolve(img);
-        img.onerror = (err) => reject(err);
-        img.src = qrCodeUrl;
+        img.onerror = () => resolve(null);
+        img.src = svgPath;
       });
 
-      if (qrImg) {
-        // Draw white frame background for QR Code
+      if (templateImg) {
+        ctx.drawImage(templateImg, 0, 0, canvas.width, canvas.height);
+      } else {
         ctx.fillStyle = '#ffffff';
-        ctx.fillRect(canvas.width - 240, 830, 120, 120);
-        ctx.strokeStyle = '#cbd5e1';
-        ctx.lineWidth = 1;
-        ctx.strokeRect(canvas.width - 240, 830, 120, 120);
-
-        // Draw QR Image
-        ctx.drawImage(qrImg, canvas.width - 235, 835, 110, 110);
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
       }
-    } catch (qrErr) {
-      console.warn("Could not render QR code on certificate canvas, exporting without it:", qrErr);
+
+      // 2. Erase / White-out previous sample name in template
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(canvas.width / 2 - 340, 545, 680, 85);
+
+      // 3. Draw Student's Name cleanly over name area
+      ctx.textAlign = 'center';
+      ctx.fillStyle = '#0f172a';
+      ctx.font = '800 48px Outfit, sans-serif';
+      ctx.fillText(cred.recipient_name, canvas.width / 2, 595);
+
+      // Accent line under student name
+      ctx.strokeStyle = '#512bd4';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(canvas.width / 2 - 200, 615);
+      ctx.lineTo(canvas.width / 2 + 200, 615);
+      ctx.stroke();
+
+      // 4. Draw Official Verification Protocol Bar & QR Code at Bottom Center
+      const verifyUrl = `${window.location.origin}?verifyId=${cred.id}`;
+
+      // Bottom Card Frame
+      ctx.fillStyle = '#ffffff';
+      ctx.shadowColor = 'rgba(0, 0, 0, 0.12)';
+      ctx.shadowBlur = 12;
+      ctx.fillRect(canvas.width / 2 - 320, 1040, 640, 95);
+      ctx.shadowColor = 'transparent';
+
+      ctx.strokeStyle = '#512bd4';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(canvas.width / 2 - 320, 1040, 640, 95);
+
+      // Left Info inside Verification Bar
+      ctx.textAlign = 'left';
+      ctx.fillStyle = '#512bd4';
+      ctx.font = '800 13px Outfit, sans-serif';
+      ctx.fillText('OFFICIAL VERIFICATION PROTOCOL', canvas.width / 2 - 300, 1068);
+
+      ctx.fillStyle = '#1e293b';
+      ctx.font = '700 12px Outfit, sans-serif';
+      ctx.fillText(`Verification Portal: ${verifyUrl}`, canvas.width / 2 - 300, 1092);
+
+      ctx.fillStyle = '#64748b';
+      ctx.font = '600 11px Manrope, sans-serif';
+      ctx.fillText(`Credential ID: ${cred.id}`, canvas.width / 2 - 300, 1115);
+
+      // QR Code on right side of Verification Bar
+      const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(verifyUrl)}`;
+      try {
+        const qrImg = await new Promise((resolve) => {
+          const img = new Image();
+          img.crossOrigin = 'anonymous';
+          img.onload = () => resolve(img);
+          img.onerror = () => resolve(null);
+          img.src = qrCodeUrl;
+        });
+
+        if (qrImg) {
+          ctx.drawImage(qrImg, canvas.width / 2 + 225, 1050, 75, 75);
+        }
+      } catch (qrErr) {
+        console.warn('Could not render QR code on canvas:', qrErr);
+      }
+    } else {
+      // Standard Certificate Exporter for non-.NET events
+      canvas.width = 1600;
+      canvas.height = 1100;
+
+      const ctx = canvas.getContext('2d');
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      ctx.strokeStyle = '#2563eb';
+      ctx.lineWidth = 20;
+      ctx.strokeRect(30, 30, canvas.width - 60, canvas.height - 60);
+
+      ctx.strokeStyle = '#d97706';
+      ctx.lineWidth = 4;
+      ctx.strokeRect(50, 50, canvas.width - 100, canvas.height - 100);
+
+      ctx.textAlign = 'center';
+      ctx.fillStyle = '#0f172a';
+      ctx.font = '800 24px Outfit, sans-serif';
+      ctx.fillText('MICROSOFT STUDENT CLUB PRPCEM', canvas.width / 2, 160);
+
+      ctx.fillStyle = '#2563eb';
+      ctx.font = '800 48px Outfit, sans-serif';
+      ctx.fillText(cred.type === 'badge' ? 'BADGE OF ACHIEVEMENT' : 'CERTIFICATE OF ACHIEVEMENT', canvas.width / 2, 280);
+
+      ctx.fillStyle = '#64748b';
+      ctx.font = 'italic 500 20px Georgia, serif';
+      ctx.fillText('This verified achievement is presented to', canvas.width / 2, 360);
+
+      ctx.fillStyle = '#0f172a';
+      ctx.font = '800 44px Outfit, sans-serif';
+      ctx.fillText(cred.recipient_name, canvas.width / 2, 440);
+
+      ctx.fillStyle = '#64748b';
+      ctx.font = '500 18px Manrope, sans-serif';
+      ctx.fillText('for successful completion of the program', canvas.width / 2, 510);
+
+      ctx.fillStyle = '#2563eb';
+      ctx.font = '800 36px Outfit, sans-serif';
+      ctx.fillText(cred.title, canvas.width / 2, 570);
+
+      ctx.fillStyle = '#64748b';
+      ctx.font = '500 14px Manrope, sans-serif';
+      ctx.fillText(cred.description || '', canvas.width / 2, 620);
+
+      ctx.textAlign = 'left';
+      ctx.fillStyle = '#0f172a';
+      ctx.font = '700 16px Manrope, sans-serif';
+      ctx.fillText(`Issued: ${cred.issue_date}`, 120, 730);
+      ctx.font = '500 13px Manrope, sans-serif';
+      ctx.fillStyle = '#64748b';
+      ctx.fillText(`Credential ID: ${cred.id}`, 120, 760);
+
+      ctx.textAlign = 'right';
+      ctx.fillStyle = '#0f172a';
+      ctx.font = 'italic 700 18px Georgia, serif';
+      ctx.fillText('Club President', canvas.width - 120, 730);
+      ctx.font = '500 13px Manrope, sans-serif';
+      ctx.fillStyle = '#64748b';
+      ctx.fillText('Microsoft Student Club Chapter', canvas.width - 120, 760);
+
+      ctx.textAlign = 'center';
+      ctx.fillStyle = '#10b981';
+      ctx.beginPath();
+      ctx.arc(canvas.width / 2, 730, 45, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.fillStyle = '#ffffff';
+      ctx.font = '800 12px Outfit, sans-serif';
+      ctx.fillText('VERIFIED', canvas.width / 2, 725);
+      ctx.font = '700 9px Outfit, sans-serif';
+      ctx.fillText('MSC SECURITY', canvas.width / 2, 742);
+
+      ctx.strokeStyle = '#e2e8f0';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(100, 810);
+      ctx.lineTo(canvas.width - 100, 810);
+      ctx.stroke();
+
+      const verifyUrl = `${window.location.origin}?verifyId=${cred.id}`;
+      ctx.textAlign = 'left';
+      ctx.fillStyle = '#2563eb';
+      ctx.font = '800 12px Outfit, sans-serif';
+      ctx.fillText('OFFICIAL VERIFICATION PROTOCOL', 120, 850);
+      ctx.font = '500 14px Manrope, sans-serif';
+      ctx.fillStyle = '#475569';
+      ctx.fillText('This achievement is cryptographically logged and registered in the Microsoft Student Club PRPCEM Registry.', 120, 880);
+      ctx.fillText('Scan the QR code or visit the verification portal below to check full-scope authenticity metadata.', 120, 905);
+      ctx.fillStyle = '#1e3a8a';
+      ctx.font = '700 14px Outfit, sans-serif';
+      ctx.fillText(`Verification Portal: ${verifyUrl}`, 120, 940);
+
+      const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(verifyUrl)}`;
+      try {
+        const qrImg = await new Promise((resolve) => {
+          const img = new Image();
+          img.crossOrigin = 'anonymous';
+          img.onload = () => resolve(img);
+          img.onerror = () => resolve(null);
+          img.src = qrCodeUrl;
+        });
+
+        if (qrImg) {
+          ctx.fillStyle = '#ffffff';
+          ctx.fillRect(canvas.width - 240, 830, 120, 120);
+          ctx.strokeStyle = '#cbd5e1';
+          ctx.lineWidth = 1;
+          ctx.strokeRect(canvas.width - 240, 830, 120, 120);
+          ctx.drawImage(qrImg, canvas.width - 235, 835, 110, 110);
+        }
+      } catch (qrErr) {
+        console.warn('Could not render QR code on certificate canvas:', qrErr);
+      }
     }
 
     const dataURL = canvas.toDataURL('image/png');
     const link = document.createElement('a');
-    link.download = `${cred.title.replace(/\s+/g, "_")}_${cred.id}.png`;
+    link.download = `${cred.title.replace(/\s+/g, '_')}_${cred.id}.png`;
     link.href = dataURL;
     link.click();
 
     fetch('/api/credentials/increment-download', { method: 'POST' });
-    showNotification("Downloaded successfully with Verification QR Code!");
+    showNotification('Downloaded certificate successfully!');
   };
 
   const faqs = [
@@ -1307,43 +1393,129 @@ export default function App() {
                           {/* Grid with preview and details */}
                           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '30px' }}>
                             
-                            {/* Left Panel: Credential Preview Card Frame */}
-                            <div 
-                              className="cert-mockup" 
-                              style={{ 
-                                height: 'auto', 
-                                margin: 0, 
-                                background: '#fafbfc', 
-                                border: '3px double #e2e8f0', 
-                                padding: '24px 16px',
-                                display: 'flex',
-                                flexDirection: 'column',
-                                justifyContent: 'space-between',
-                                gap: '16px',
-                                position: 'relative'
-                              }}
-                            >
-                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                <img src="/assets/MSC_logo.png" style={{ height: '24px' }} alt="MSC Logo" />
-                                <span style={{ fontSize: '9px', fontWeight: 800, background: '#eff6ff', color: '#2563eb', padding: '2px 8px', borderRadius: '4px', textTransform: 'uppercase' }}>
-                                  {verifyResult.record.type}
-                                </span>
-                              </div>
+                             {/* Left Panel: Credential Preview Card Frame */}
+                             {(verifyResult.record.title || '').toLowerCase().includes('.net') ? (
+                               <div 
+                                 className="cert-mockup" 
+                                 style={{ 
+                                   padding: '0', 
+                                   overflow: 'hidden', 
+                                   position: 'relative', 
+                                   borderRadius: '12px', 
+                                   boxShadow: '0 4px 16px rgba(0,0,0,0.1)'
+                                 }}
+                               >
+                                 <img 
+                                   src="/assets/.NET%20Conf%202025.svg" 
+                                   alt=".NET Conf 2025 Certificate Template" 
+                                   style={{ width: '100%', height: 'auto', display: 'block' }}
+                                 />
 
-                              <div style={{ textAlign: 'center', margin: '10px 0' }}>
-                                <h4 style={{ fontSize: '11px', textTransform: 'uppercase', color: '#64748b', letterSpacing: '1px', margin: '0 0 6px 0' }}>Verified Achievement</h4>
-                                <h3 style={{ fontSize: '18px', fontWeight: 900, color: '#0f172a', margin: '0 0 8px 0' }}>{verifyResult.record.recipient_name}</h3>
-                                <p style={{ fontSize: '12px', color: '#475569', margin: '0 auto 12px', maxWidth: '240px', lineHeight: 1.4 }}>
-                                  Successfully completed the certified club program
-                                </p>
-                                <h3 style={{ fontSize: '15px', fontWeight: 800, color: '#2563eb', margin: 0 }}>{verifyResult.record.title}</h3>
-                              </div>
+                                 {/* Cover previous sample name in template */}
+                                 <div 
+                                   style={{
+                                     position: 'absolute',
+                                     top: '49.5%',
+                                     left: '50%',
+                                     transform: 'translate(-50%, -50%)',
+                                     width: '60%',
+                                     height: '13%',
+                                     background: '#ffffff',
+                                     zIndex: 1
+                                   }}
+                                 />
 
-                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid #f1f5f9', paddingTop: '10px', fontSize: '10px', color: '#64748b' }}>
-                                <span>ID: <strong style={{ fontFamily: 'monospace' }}>{verifyResult.record.id}</strong></span>
-                                <span>MSC Security</span>
-                              </div>
-                            </div>
+                                 {/* Overlaid Recipient Name */}
+                                 <div 
+                                   style={{
+                                     position: 'absolute',
+                                     top: '49.5%',
+                                     left: '50%',
+                                     transform: 'translate(-50%, -50%)',
+                                     width: '80%',
+                                     textAlign: 'center',
+                                     fontWeight: 800,
+                                     fontSize: 'clamp(14px, 2.5vw, 22px)',
+                                     color: '#0f172a',
+                                     fontFamily: 'Outfit, sans-serif',
+                                     zIndex: 2
+                                   }}
+                                 >
+                                   {verifyResult.record.recipient_name}
+                                 </div>
+
+                                 {/* Bottom Verification Protocol Bar */}
+                                 <div
+                                   style={{
+                                     position: 'absolute',
+                                     bottom: '2.5%',
+                                     left: '50%',
+                                     transform: 'translateX(-50%)',
+                                     width: '92%',
+                                     background: '#ffffff',
+                                     border: '1px solid #512bd4',
+                                     borderRadius: '8px',
+                                     padding: '6px 12px',
+                                     display: 'flex',
+                                     alignItems: 'center',
+                                     justify: 'space-between',
+                                     boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+                                     zIndex: 2
+                                   }}
+                                 >
+                                   <div style={{ textAlign: 'left' }}>
+                                     <div style={{ fontSize: '9px', fontWeight: 800, color: '#512bd4', letterSpacing: '0.5px' }}>OFFICIAL VERIFICATION PROTOCOL</div>
+                                     <div style={{ fontSize: '9px', fontWeight: 600, color: '#1e293b' }}>
+                                       {window.location.origin}?verifyId={verifyResult.record.id}
+                                     </div>
+                                   </div>
+                                   <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                     <img
+                                       src={`https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=${encodeURIComponent(window.location.origin + '?verifyId=' + verifyResult.record.id)}`}
+                                       alt="QR Code"
+                                       style={{ width: '38px', height: '38px', borderRadius: '4px' }}
+                                     />
+                                   </div>
+                                 </div>
+                               </div>
+                             ) : (
+                               <div 
+                                 className="cert-mockup" 
+                                 style={{ 
+                                   height: 'auto', 
+                                   margin: 0, 
+                                   background: '#fafbfc', 
+                                   border: '3px double #e2e8f0', 
+                                   padding: '24px 16px',
+                                   display: 'flex',
+                                   flexDirection: 'column',
+                                   justify: 'space-between',
+                                   gap: '16px',
+                                   position: 'relative'
+                                 }}
+                               >
+                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                   <img src="/assets/MSC_logo.png" style={{ height: '24px' }} alt="MSC Logo" />
+                                   <span style={{ fontSize: '9px', fontWeight: 800, background: '#eff6ff', color: '#2563eb', padding: '2px 8px', borderRadius: '4px', textTransform: 'uppercase' }}>
+                                     {verifyResult.record.type}
+                                   </span>
+                                 </div>
+
+                                 <div style={{ textAlign: 'center', margin: '10px 0' }}>
+                                   <h4 style={{ fontSize: '11px', textTransform: 'uppercase', color: '#64748b', letterSpacing: '1px', margin: '0 0 6px 0' }}>Verified Achievement</h4>
+                                   <h3 style={{ fontSize: '18px', fontWeight: 900, color: '#0f172a', margin: '0 0 8px 0' }}>{verifyResult.record.recipient_name}</h3>
+                                   <p style={{ fontSize: '12px', color: '#475569', margin: '0 auto 12px', maxWidth: '240px', lineHeight: 1.4 }}>
+                                     Successfully completed the certified club program
+                                   </p>
+                                   <h3 style={{ fontSize: '15px', fontWeight: 800, color: '#2563eb', margin: 0 }}>{verifyResult.record.title}</h3>
+                                 </div>
+
+                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid #f1f5f9', paddingTop: '10px', fontSize: '10px', color: '#64748b' }}>
+                                   <span>ID: <strong style={{ fontFamily: 'monospace' }}>{verifyResult.record.id}</strong></span>
+                                   <span>MSC Security</span>
+                                 </div>
+                               </div>
+                             )}
 
                             {/* Right Panel: Requested Fields, QR Code, Actions */}
                             <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>

@@ -62,155 +62,100 @@ export default function Dashboard({ user, onShowNotification }) {
   };
 
   // Draw and download dynamic certificate onto HTML5 canvas
+  // Draw and download dynamic certificate onto HTML5 canvas using .NET Conf 2025 SVG Template
   const handleDownload = async (cred) => {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
+    canvas.width = 1685;
+    canvas.height = 1191;
+
     const ctx = canvas.getContext('2d');
-    
-    // Clear canvas
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    // 1. Draw Background
-    const bgGradient = ctx.createRadialGradient(800, 600, 100, 800, 600, 1000);
-    bgGradient.addColorStop(0, '#ffffff');
-    bgGradient.addColorStop(1, '#f1f5f9');
-    ctx.fillStyle = bgGradient;
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    // 1. Draw .NET Conf 2025 SVG Template background
+    const svgPath = '/assets/.NET%20Conf%202025.svg';
+    const templateImg = await new Promise((resolve) => {
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.onload = () => resolve(img);
+      img.onerror = () => resolve(null);
+      img.src = svgPath;
+    });
 
-    // 2. Draw Outer Borders (Royal Blue and gold styles)
-    ctx.strokeStyle = '#2563eb';
-    ctx.lineWidth = 20;
-    ctx.strokeRect(30, 30, canvas.width - 60, canvas.height - 60);
+    if (templateImg) {
+      ctx.drawImage(templateImg, 0, 0, canvas.width, canvas.height);
+    } else {
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+    }
 
-    ctx.strokeStyle = '#d97706'; // Gold accent border
-    ctx.lineWidth = 4;
-    ctx.strokeRect(50, 50, canvas.width - 100, canvas.height - 100);
-
-    // Decorative corner notches
-    ctx.fillStyle = '#2563eb';
-    ctx.fillRect(40, 40, 30, 30);
-    ctx.fillRect(canvas.width - 70, 40, 30, 30);
-    ctx.fillRect(40, canvas.height - 70, 30, 30);
-    ctx.fillRect(canvas.width - 70, canvas.height - 70, 30, 30);
-
-    // 3. Header text
+    // 2. Overlay Recipient's Name
     ctx.textAlign = 'center';
-    ctx.fillStyle = '#0f172a';
-    ctx.font = '800 24px Outfit, sans-serif';
-    ctx.fillText('MICROSOFT STUDENT CLUB PRPCEM', canvas.width / 2, 160);
-
-    ctx.font = '600 14px Manrope, sans-serif';
-    ctx.fillStyle = '#2563eb';
-    ctx.fillText('STUDENT-LED TECH COMMUNITY', canvas.width / 2, 190);
-
-    // 4. Main Certificate Title
-    ctx.fillStyle = '#1e3a8a';
-    ctx.font = '800 52px Outfit, sans-serif';
-    ctx.fillText('CERTIFICATE OF ACHIEVEMENT', canvas.width / 2, 280);
-
-    // 5. Presentation text
-    ctx.fillStyle = '#64748b';
-    ctx.font = 'italic 500 20px Georgia, serif';
-    ctx.fillText('This is proudly presented to', canvas.width / 2, 360);
-
-    // 6. Recipient Name
     ctx.fillStyle = '#0f172a';
     ctx.font = '800 48px Outfit, sans-serif';
-    ctx.fillText(cred.recipient_name, canvas.width / 2, 440);
+    ctx.fillText(cred.recipient_name, canvas.width / 2, 595);
 
-    // Underline name
-    ctx.strokeStyle = '#d97706';
+    ctx.strokeStyle = '#512bd4';
     ctx.lineWidth = 3;
     ctx.beginPath();
-    ctx.moveTo(canvas.width / 2 - 200, 460);
-    ctx.lineTo(canvas.width / 2 + 200, 460);
+    ctx.moveTo(canvas.width / 2 - 200, 615);
+    ctx.lineTo(canvas.width / 2 + 200, 615);
     ctx.stroke();
 
-    // 7. Achievement detail text
-    ctx.fillStyle = '#64748b';
-    ctx.font = '500 18px Manrope, sans-serif';
-    
-    let detailText = `for outstanding participation and completion of the`;
-    if (cred.type === 'badge') {
-      detailText = `for verified membership and core service in the capacity of`;
-    }
-    ctx.fillText(detailText, canvas.width / 2, 520);
+    // 3. Overlay Verification URL and QR Code on Open Space
+    const verifyUrl = `${window.location.origin}?verifyId=${cred.id}`;
 
-    // 8. Program / Title
-    ctx.fillStyle = '#2563eb';
-    ctx.font = '800 36px Outfit, sans-serif';
-    ctx.fillText(cred.title, canvas.width / 2, 580);
-
-    // 9. Extra Description
-    ctx.fillStyle = '#64748b';
-    ctx.font = '500 15px Manrope, sans-serif';
-    const descText = cred.description || "";
-    // Simple line wrap for description
-    if (descText.length > 80) {
-      ctx.fillText(descText.slice(0, 80) + "...", canvas.width / 2, 630);
-    } else {
-      ctx.fillText(descText, canvas.width / 2, 630);
-    }
-
-    // 10. Footer Section (Date & ID left, Signatures right)
-    // Date & ID
     ctx.textAlign = 'left';
-    ctx.fillStyle = '#0f172a';
-    ctx.font = '700 16px Manrope, sans-serif';
-    ctx.fillText(`Date: ${cred.issue_date}`, 120, 760);
-    
-    ctx.fillStyle = '#64748b';
-    ctx.font = '500 14px Manrope, sans-serif';
-    ctx.fillText(`Verification ID: ${cred.id}`, 120, 790);
+    ctx.fillStyle = '#512bd4';
+    ctx.font = '800 14px Outfit, sans-serif';
+    ctx.fillText('OFFICIAL VERIFICATION PROTOCOL', 120, 990);
+    ctx.font = '500 13px Manrope, sans-serif';
+    ctx.fillStyle = '#475569';
+    ctx.fillText('This certificate is registered & verified in the MSC PRPCEM Registry.', 120, 1015);
+    ctx.fillStyle = '#1e293b';
+    ctx.font = '700 13px Outfit, sans-serif';
+    ctx.fillText(`Verification Portal: ${verifyUrl}`, 120, 1040);
 
-    // Signatures
-    ctx.textAlign = 'right';
-    ctx.fillStyle = '#0f172a';
-    ctx.font = 'italic 700 18px Georgia, serif';
-    ctx.fillText('Club President', canvas.width - 120, 760);
-    
-    ctx.strokeStyle = '#64748b';
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.moveTo(canvas.width - 260, 740);
-    ctx.lineTo(canvas.width - 120, 740);
-    ctx.stroke();
+    const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(verifyUrl)}`;
+    try {
+      const qrImg = await new Promise((resolve) => {
+        const img = new Image();
+        img.crossOrigin = 'anonymous';
+        img.onload = () => resolve(img);
+        img.onerror = () => resolve(null);
+        img.src = qrCodeUrl;
+      });
 
-    ctx.fillStyle = '#64748b';
-    ctx.font = '500 14px Manrope, sans-serif';
-    ctx.fillText('MSC PRPCEM', canvas.width - 120, 790);
+      if (qrImg) {
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(canvas.width - 250, 930, 150, 190);
+        ctx.strokeStyle = '#512bd4';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(canvas.width - 250, 930, 150, 190);
 
-    // 11. Certified Seal badge (drawn dynamically)
-    ctx.textAlign = 'center';
-    ctx.fillStyle = '#10b981';
-    ctx.beginPath();
-    ctx.arc(canvas.width / 2, 760, 45, 0, Math.PI * 2);
-    ctx.fill();
+        ctx.drawImage(qrImg, canvas.width - 240, 940, 130, 130);
 
-    ctx.fillStyle = '#ffffff';
-    ctx.font = '800 12px Outfit, sans-serif';
-    ctx.fillText('VERIFIED', canvas.width / 2, 755);
-    ctx.font = '700 9px Outfit, sans-serif';
-    ctx.fillText('MSC SECURITY', canvas.width / 2, 772);
+        ctx.textAlign = 'center';
+        ctx.fillStyle = '#512bd4';
+        ctx.font = '800 11px Outfit, sans-serif';
+        ctx.fillText('SCAN TO VERIFY', canvas.width - 175, 1090);
+        ctx.fillStyle = '#64748b';
+        ctx.font = '600 10px Manrope, sans-serif';
+        ctx.fillText(`ID: ${cred.id}`, canvas.width - 175, 1108);
+      }
+    } catch (qrErr) {
+      console.warn('Could not render QR code on certificate canvas:', qrErr);
+    }
 
-    // Seal outer ring
-    ctx.strokeStyle = '#ffffff';
-    ctx.lineWidth = 3;
-    ctx.beginPath();
-    ctx.arc(canvas.width / 2, 760, 38, 0, Math.PI * 2);
-    ctx.stroke();
-
-    // 12. Trigger browser download
     const dataURL = canvas.toDataURL('image/png');
     const link = document.createElement('a');
-    link.download = `${cred.title.replace(/\s+/g, "_")}_Certificate_${cred.id}.png`;
+    link.download = `${cred.title.replace(/\s+/g, '_')}_${cred.id}.png`;
     link.href = dataURL;
     link.click();
 
-    // Increment download counter in backend
     fetch('/api/credentials/increment-download', { method: 'POST' });
-    onShowNotification("Certificate downloaded successfully!");
+    onShowNotification('Certificate downloaded successfully!');
   };
 
   return (
