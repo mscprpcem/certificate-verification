@@ -448,7 +448,7 @@ app.get("/api/credentials/verify", async (req, res) => {
         matched = await dbGet("SELECT * FROM credentials WHERE LOWER(recipient_name) = ? LIMIT 1", [name.toLowerCase().trim()]);
       }
     } else if (url) {
-      const idMatch = url.match(/MSC-[A-Z]+-\d+/i);
+      const idMatch = url.match(/MSC-[A-Z]+-[\d-]+\d/i);
       const extractedId = idMatch ? idMatch[0] : url.trim();
       matched = await dbGet("SELECT * FROM credentials WHERE id = ?", [extractedId]);
     }
@@ -547,8 +547,8 @@ app.get("/api/u/:username", async (req, res) => {
     const user = await dbGet(
       `SELECT id, name, email, bio, headline, profile_photo, linkedin_url, github_url, skills, xp, level, created_at 
        FROM users 
-       WHERE LOWER(email) LIKE ? OR LOWER(name) LIKE ? OR REPLACE(LOWER(name), ' ', '') = ?`,
-      [`%${searchString}%`, `%${searchString}%`, searchString]
+       WHERE LOWER(email) LIKE ? OR LOWER(name) LIKE ? OR REPLACE(LOWER(name), ' ', '') = ? OR REPLACE(LOWER(name), ' ', '') LIKE ?`,
+      [`%${searchString}%`, `%${searchString}%`, searchString, `%${searchString}%`]
     );
 
     if (!user) {
@@ -670,6 +670,73 @@ app.delete("/api/admin/credentials/:id", requireAdmin, async (req, res) => {
   } catch (err) {
     console.error("Revoke error:", err);
     res.status(500).json({ error: "Failed to revoke." });
+  }
+});
+
+// Admin bulk issue
+app.post("/api/admin/bulk-issue", requireAdmin, async (req, res) => {
+  const { csvContent } = req.body;
+  if (!csvContent || !csvContent.trim()) {
+    return res.status(400).json({ error: "CSV content is required." });
+  }
+
+  try {
+    const lines = csvContent.trim().split('\n').map(l => l.trim()).filter(l => l);
+    if (lines.length < 2) {
+      return res.status(400).json({ error: "CSV must have a header row and at least one data row." });
+    }
+
+    const headers = lines[0].split(',').map(h => h.trim().toLowerCase());
+    let issuedCount = 0;
+
+    for (let i = 1; i < lines.length; i++) {
+      const values = lines[i].split(',').map(v => v.trim());
+      const row = {};
+      headers.forEach((h, idx) => { row[h] = values[idx] || ''; });
+
+      const recipientName = row.name || '';
+      const recipientEmail = (row.email || '').toLowerCase().trim();
+      const type = row.type || 'certificate';
+      const title = row.title || '';
+      const category = row.category || 'General';
+      const issueDate = row.issue_date || '20 July 2026';
+      const badgeIcon = row.badge_icon || (type === 'certificate' ? 'fa-award' : 'fa-shield-halved');
+      const description = row.description || `Awarded for ${title}.`;
+      const skillsList = row.skills_list || (type === 'certificate' ? 'Collaboration, Learning' : 'Leadership, Teamwork');
+
+      if (!recipientName || !recipientEmail || !title) continue;
+
+      const year = issueDate.match(/\d{4}/) ? issueDate.match(/\d{4}/)[0] : '2026';
+      const rand = Math.floor(10000 + Math.random() * 90000);
+      const prefix = type === 'certificate' ? 'CRT' : 'BDG';
+      const customId = `MSC-${prefix}-${rand}`;
+
+      const user = await dbGet("SELECT id FROM users WHERE LOWER(email) = ?", [recipientEmail]);
+      const userId = user ? user.id : null;
+
+      await dbRun(
+        `INSERT INTO credentials (id, recipient_name, recipient_email, user_id, type, title, category, issue_date, description, badge_icon, skills_list)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [customId, recipientName, recipientEmail, userId, type, title, category, issueDate, description, badgeIcon, skillsList]
+      );
+
+      if (userId) {
+        const xpBonus = type === 'certificate' ? 100 : 200;
+        const currentUser = await dbGet("SELECT xp FROM users WHERE id = ?", [userId]);
+        const currentXp = currentUser ? currentUser.xp : 0;
+        const newXp = currentXp + xpBonus;
+        const newLevel = calculateLevel(newXp);
+        await dbRun("UPDATE users SET xp = ?, level = ? WHERE id = ?", [newXp, newLevel, userId]);
+        await dbRun("INSERT INTO activity_logs (user_id, action) VALUES (?, ?)", [userId, `Earned ${title} via bulk issue`]);
+      }
+
+      issuedCount++;
+    }
+
+    res.json({ success: true, message: `Bulk issued ${issuedCount} credentials.`, issuedCount });
+  } catch (err) {
+    console.error("Bulk issue error:", err);
+    res.status(500).json({ error: "Failed to process bulk issue." });
   }
 });
 
