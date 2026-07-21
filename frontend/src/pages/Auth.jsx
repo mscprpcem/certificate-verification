@@ -39,6 +39,7 @@ export default function Auth({ onLoginSuccess, onViewChange }) {
         }, 800);
       }
     } catch (err) {
+      console.error(err);
       setErrorMessage('Failed to connect to server.');
     }
   };

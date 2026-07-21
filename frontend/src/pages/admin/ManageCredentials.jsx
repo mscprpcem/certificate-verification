@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 
-export default function ManageCredentials({ credentials, loading, onRevoke, onShowNotification }) {
+export default function ManageCredentials({ credentials, loading, onRevoke, _onShowNotification }) {
   const [searchQuery, setSearchQuery] = useState('');
   const [filterType, setFilterType] = useState('all');
 

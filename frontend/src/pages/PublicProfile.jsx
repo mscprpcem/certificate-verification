@@ -4,10 +4,11 @@ export default function PublicProfile({ username, onShowNotification }) {
   const [profileData, setProfileData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [recruiterMode, setRecruiterMode] = useState(true); // Default true for Recruiter Mode showcase
+  const recruiterMode = true; // Default true for Recruiter Mode showcase
 
   useEffect(() => {
     fetchProfile();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [username]);
 
   const fetchProfile = async () => {
@@ -22,6 +23,7 @@ export default function PublicProfile({ username, onShowNotification }) {
         setProfileData(data);
       }
     } catch (err) {
+      console.error(err);
       setError('Connection failed to public portfolio server.');
     } finally {
       setLoading(false);
@@ -81,6 +83,14 @@ export default function PublicProfile({ username, onShowNotification }) {
   const { user, credentials } = profileData;
   const skillsObj = JSON.parse(user.skills || '{}');
 
+  const handleCopyProfile = () => {
+    const profileUrl = `${window.location.origin}/?username=${encodeURIComponent(username)}`;
+    navigator.clipboard.writeText(profileUrl);
+    if (onShowNotification) {
+      onShowNotification("🎉 Public profile link copied to clipboard!");
+    }
+  };
+
   return (
     <div className="wallet-wrapper">
       
@@ -89,28 +99,34 @@ export default function PublicProfile({ username, onShowNotification }) {
         <div className="profile-photo-circle">
           {user.name[0].toUpperCase()}
         </div>
-        <h2 style={{ fontSize: '28px', fontWeight: 800 }}>{user.name}</h2>
+        <h2 style={{ fontSize: '28px', fontWeight: 800, margin: '8px 0 2px' }}>{user.name}</h2>
         <p style={{ fontSize: '15px', color: 'var(--text-muted)', fontWeight: 600 }}>
           {user.headline || 'Student Developer'} • Microsoft Student Club
         </p>
-        <p style={{ fontSize: '13px', color: 'var(--text-muted)', maxWidth: '500px', marginTop: '8px' }}>
+        <p style={{ fontSize: '13px', color: 'var(--text-muted)', maxWidth: '500px', marginTop: '8px', marginBottom: '12px' }}>
           {user.bio || 'Microsoft Student Club chapter member holding verified developer credentials.'}
         </p>
-        
-        {user.linkedin_url || user.github_url ? (
-          <div style={{ display: 'flex', gap: '12px', marginTop: '14px' }}>
-            {user.linkedin_url && (
-              <a href={user.linkedin_url} target="_blank" rel="noreferrer" className="public-profile-anchor" style={{ background: '#0a66c2', color: 'white', border: 'none' }}>
-                <i className="fa-brands fa-linkedin"></i> LinkedIn
-              </a>
-            )}
-            {user.github_url && (
-              <a href={user.github_url} target="_blank" rel="noreferrer" className="public-profile-anchor" style={{ background: '#24292e', color: 'white', border: 'none' }}>
-                <i className="fa-brands fa-github"></i> GitHub
-              </a>
-            )}
-          </div>
-        ) : null}
+
+        <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', justifyContent: 'center' }}>
+          <button 
+            className="signin-btn" 
+            onClick={handleCopyProfile}
+            style={{ padding: '8px 16px', fontWeight: 700, fontSize: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}
+          >
+            <i className="fa-solid fa-share-nodes"></i> Share Profile
+          </button>
+          
+          {user.linkedin_url && (
+            <a href={user.linkedin_url} target="_blank" rel="noreferrer" className="public-profile-anchor" style={{ background: '#0a66c2', color: 'white', border: 'none', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <i className="fa-brands fa-linkedin"></i> LinkedIn
+            </a>
+          )}
+          {user.github_url && (
+            <a href={user.github_url} target="_blank" rel="noreferrer" className="public-profile-anchor" style={{ background: '#24292e', color: 'white', border: 'none', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <i className="fa-brands fa-github"></i> GitHub
+            </a>
+          )}
+        </div>
       </div>
 
       {/* Stats Counter Section */}

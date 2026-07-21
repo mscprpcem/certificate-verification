@@ -1,16 +1,17 @@
 import React, { useState } from 'react';
 
-export default function IssueCredentialForm({ onShowNotification, onRefresh }) {
+export default function IssueCredentialForm({ onShowNotification, onRefresh, prefill }) {
   const [recipientName, setRecipientName] = useState('');
   const [recipientEmail, setRecipientEmail] = useState('');
-  const [type, setType] = useState('certificate');
-  const [title, setTitle] = useState('');
-  const [category, setCategory] = useState('Event');
+  const [type, setType] = useState(prefill?.type || 'certificate');
+  const [title, setTitle] = useState(prefill?.title || '');
+  const [category, setCategory] = useState(prefill?.category || 'Event');
   const [domain, setDomain] = useState('');
   const [issueDate, setIssueDate] = useState('20 July 2026');
-  const [description, setDescription] = useState('');
-  const [badgeIcon, setBadgeIcon] = useState('fa-award');
+  const [description, setDescription] = useState(prefill?.description || '');
+  const [badgeIcon, setBadgeIcon] = useState(prefill?.badge_icon || (prefill?.type === 'badge' ? 'fa-shield-halved' : 'fa-award'));
   const [submitting, setSubmitting] = useState(false);
+
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -53,6 +54,7 @@ export default function IssueCredentialForm({ onShowNotification, onRefresh }) {
         onShowNotification(`Error: ${data.error}`);
       }
     } catch (err) {
+      console.error(err);
       onShowNotification("Failed to connect to server.");
     } finally {
       setSubmitting(false);

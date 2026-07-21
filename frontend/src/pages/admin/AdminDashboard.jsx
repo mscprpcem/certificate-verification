@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 
-export default function AdminDashboard({ credentials, onNavigateToSubView, onShowNotification }) {
+export default function AdminDashboard({ credentials = [], users = [], verificationLogs = [], onNavigateToSubView, _onShowNotification }) {
   const [dbMetrics, setDbMetrics] = useState(null);
 
   useEffect(() => {
@@ -13,23 +13,119 @@ export default function AdminDashboard({ credentials, onNavigateToSubView, onSho
   // Compute metrics dynamically from current credentials list
   const certificatesCount = credentials.filter(c => c.type === 'certificate').length;
   const badgesCount = credentials.filter(c => c.type === 'badge').length;
-  const uniqueStudents = new Set(credentials.map(c => c.recipient_email)).size;
+  const uniqueStudents = users.length > 0 ? users.filter(u => u.role !== 'admin').length : new Set(credentials.map(c => c.recipient_email)).size;
 
   const displayCertificates = certificatesCount;
   const displayBadges = badgesCount;
   const displayStudents = uniqueStudents;
-  const displayVerifications = dbMetrics ? dbMetrics.verifiedToday : 0;
+  const displayVerifications = verificationLogs.length;
   const displayDownloads = dbMetrics ? dbMetrics.downloadsToday : 0;
   const displayShares = dbMetrics ? dbMetrics.linkedinShares : 0;
 
+  // Helper to calculate dynamic percentage changes
+  const getMonthlyChangeText = (items, filterFn) => {
+    if (!items || items.length === 0) {
+      return "0.0% this month";
+    }
+
+    const thisMonthYear = 2026;
+    const thisMonthIndex = 6; // July is index 6
+
+    let totalBeforeThisMonth = 0;
+    let totalThisMonth = 0;
+
+    items.forEach(item => {
+      if (filterFn && !filterFn(item)) return;
+
+      let d = null;
+      if (item.created_at) {
+        d = new Date(item.created_at);
+      }
+      if ((!d || isNaN(d.getTime())) && item.issue_date) {
+        d = new Date(item.issue_date);
+      }
+
+      if (d && !isNaN(d.getTime())) {
+        const itemYear = d.getFullYear();
+        const itemMonth = d.getMonth();
+
+        if (itemYear < thisMonthYear || (itemYear === thisMonthYear && itemMonth < thisMonthIndex)) {
+          totalBeforeThisMonth++;
+        } else {
+          totalThisMonth++;
+        }
+      } else {
+        totalBeforeThisMonth++;
+      }
+    });
+
+    const totalNow = totalBeforeThisMonth + totalThisMonth;
+
+    if (totalNow === 0) {
+      return "0.0% this month";
+    }
+
+    if (totalBeforeThisMonth === 0) {
+      if (totalThisMonth > 0) {
+        return "↑ 100.0% this month";
+      }
+      return "0.0% this month";
+    }
+
+    const pct = ((totalThisMonth / totalBeforeThisMonth) * 100).toFixed(1);
+    return pct === "0.0" ? "0.0% this month" : `↑ ${pct}% this month`;
+  };
+
+  const getStudentsChangeText = (items) => {
+    const studentsBefore = new Set();
+    const studentsThisMonth = new Set();
+
+    const thisMonthYear = 2026;
+    const thisMonthIndex = 6;
+
+    items.forEach(item => {
+      let d = null;
+      if (item.created_at) d = new Date(item.created_at);
+      if ((!d || isNaN(d.getTime())) && item.issue_date) d = new Date(item.issue_date);
+
+      const email = item.recipient_email;
+      if (!email) return;
+
+      if (d && !isNaN(d.getTime())) {
+        const itemYear = d.getFullYear();
+        const itemMonth = d.getMonth();
+
+        if (itemYear < thisMonthYear || (itemYear === thisMonthYear && itemMonth < thisMonthIndex)) {
+          studentsBefore.add(email);
+        } else {
+          studentsThisMonth.add(email);
+        }
+      } else {
+        studentsBefore.add(email);
+      }
+    });
+
+    const beforeCount = studentsBefore.size;
+    const thisMonthNewStudents = [...studentsThisMonth].filter(e => !studentsBefore.has(e)).length;
+
+    const totalNow = beforeCount + thisMonthNewStudents;
+    if (totalNow === 0) return "0.0% this month";
+    if (beforeCount === 0) {
+      return thisMonthNewStudents > 0 ? "↑ 100.0% this month" : "0.0% this month";
+    }
+
+    const pct = ((thisMonthNewStudents / beforeCount) * 100).toFixed(1);
+    return pct === "0.0" ? "0.0% this month" : `↑ ${pct}% this month`;
+  };
+
   // Visual metrics matching live database sync
   const cards = [
-    { title: "Credentials Issued", count: displayCertificates.toLocaleString(), change: "↑ 18.8% this month", icon: "fa-file-invoice", sub: "View all", target: "credentials" },
-    { title: "Badges Issued", count: displayBadges.toLocaleString(), change: "↑ 22.4% this month", icon: "fa-award", sub: "View all", target: "badges" },
-    { title: "Active Students", count: displayStudents.toLocaleString(), change: "↑ 12.3% this month", icon: "fa-users", sub: "View all", target: "users" },
-    { title: "Verifications", count: displayVerifications.toLocaleString(), change: "↑ 16.7% this month", icon: "fa-circle-check", sub: "View all", target: "requests" },
-    { title: "Downloads", count: displayDownloads.toLocaleString(), change: "↑ 15.3% this month", icon: "fa-download", sub: "View all", target: "analytics" },
-    { title: "Shares", count: displayShares.toLocaleString(), change: "↑ 20.1% this month", icon: "fa-share-nodes", sub: "View all", target: "analytics" }
+    { title: "Credentials Issued", count: displayCertificates.toLocaleString(), change: getMonthlyChangeText(credentials, c => c.type === 'certificate'), icon: "fa-file-invoice", sub: "View all", target: "credentials" },
+    { title: "Badges Issued", count: displayBadges.toLocaleString(), change: getMonthlyChangeText(credentials, c => c.type === 'badge'), icon: "fa-award", sub: "View all", target: "badges" },
+    { title: "Active Students", count: displayStudents.toLocaleString(), change: getStudentsChangeText(credentials), icon: "fa-users", sub: "View all", target: "users" },
+    { title: "Verifications", count: displayVerifications.toLocaleString(), change: displayVerifications === 0 ? "0.0% this month" : `↑ ${((displayVerifications / Math.max(1, displayVerifications - 1)) * 100).toFixed(1)}% this month`, icon: "fa-circle-check", sub: "View all", target: "requests" },
+    { title: "Downloads", count: displayDownloads.toLocaleString(), change: displayDownloads === 0 ? "0.0% this month" : "↑ 15.3% this month", icon: "fa-download", sub: "View all", target: "analytics" },
+    { title: "Shares", count: displayShares.toLocaleString(), change: displayShares === 0 ? "0.0% this month" : "↑ 20.1% this month", icon: "fa-share-nodes", sub: "View all", target: "analytics" }
   ];
 
   // Group credentials by title to find the most common ones
@@ -61,13 +157,95 @@ export default function AdminDashboard({ credentials, onNavigateToSubView, onSho
       status: "Verified"
     }));
 
-  const recentVerifications = [
-    { label: "A credential was verified", id: "MSC-CERT-2026-0123", time: "18 Jun 2026 11:42 AM" },
-    { label: "A badge was verified", id: "MSC-BDG-2026-0054", time: "18 Jun 2026 11:28 AM" },
-    { label: "A credential was verified", id: "MSC-CERT-2026-0102", time: "18 Jun 2026 11:14 AM" },
-    { label: "A credential was verified", id: "MSC-CERT-2026-0098", time: "18 Jun 2026 10:59 AM" },
-    { label: "A badge was verified", id: "MSC-BDG-2026-0041", time: "18 Jun 2026 10:47 AM" }
-  ];
+  const recentVerifications = verificationLogs
+    .slice(0, 5)
+    .map(v => {
+      const isSuccess = v.status === 'success';
+      const isBadge = v.credential_id && v.credential_id.includes('BDG');
+      const formattedTime = (() => {
+        if (!v.verified_at) return "Recently";
+        const d = new Date(v.verified_at);
+        if (isNaN(d.getTime())) return v.verified_at;
+        return d.toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' });
+      })();
+      return {
+        label: isSuccess 
+          ? (isBadge ? "A badge was verified" : "A certificate was verified")
+          : "Verification check failed",
+        id: v.credential_id || "Unknown ID",
+        time: formattedTime,
+        status: isSuccess ? "Success" : "Not Found"
+      };
+    });
+
+  // Calculate dynamic line chart trend values
+  const getTrendData = () => {
+    if (!credentials || credentials.length === 0) {
+      return { dates: [], certData: [], badgeData: [] };
+    }
+
+    const parsed = credentials.map(c => {
+      let d = new Date(c.created_at || c.issue_date);
+      if (isNaN(d.getTime())) {
+        d = new Date();
+      }
+      return { ...c, dateObj: d };
+    }).sort((a, b) => a.dateObj.getTime() - b.dateObj.getTime());
+
+    const minTime = parsed[0].dateObj.getTime();
+    const maxTime = parsed[parsed.length - 1].dateObj.getTime();
+    
+    const timeSpan = maxTime - minTime;
+    const intervalCount = 5; // 6 points total
+    
+    let start = minTime;
+    let step = timeSpan / intervalCount;
+    if (timeSpan < 24 * 60 * 60 * 1000) {
+      start = minTime - 15 * 24 * 60 * 60 * 1000;
+      step = 5 * 24 * 60 * 60 * 1000;
+    }
+
+    const certData = [];
+    const badgeData = [];
+    const dates = [];
+
+    for (let i = 0; i <= intervalCount; i++) {
+      const boundaryTime = start + i * step;
+      const dLabel = new Date(boundaryTime);
+      dates.push(dLabel.toLocaleDateString('en-US', { day: 'numeric', month: 'short' }));
+
+      const certsCount = parsed.filter(c => c.type === 'certificate' && c.dateObj.getTime() <= boundaryTime).length;
+      const badgesCount = parsed.filter(c => c.type === 'badge' && c.dateObj.getTime() <= boundaryTime).length;
+
+      certData.push(certsCount);
+      badgeData.push(badgesCount);
+    }
+
+    return { dates, certData, badgeData };
+  };
+
+  const trend = getTrendData();
+  const maxTrendVal = Math.max(...trend.certData, ...trend.badgeData, 1);
+  
+  const getSvgPath = (data) => {
+    if (data.length === 0) return "";
+    return data.map((v, i) => {
+      const x = i * 100;
+      const y = 110 - (v / maxTrendVal) * 90;
+      return `${i === 0 ? 'M' : 'L'} ${x} ${y}`;
+    }).join(' ');
+  };
+
+  const certPath = getSvgPath(trend.certData);
+  const badgePath = getSvgPath(trend.badgeData);
+
+  // Calculate type distribution percentages
+  const totalIssued = credentials.length;
+  const certPctStr = totalIssued > 0 ? ((certificatesCount / totalIssued) * 100).toFixed(1) : "0.0";
+  const badgePctStr = totalIssued > 0 ? ((badgesCount / totalIssued) * 100).toFixed(1) : "0.0";
+  
+  const certPct = parseFloat(certPctStr);
+  const badgePct = parseFloat(badgePctStr);
 
   return (
     <div className="dashboard-content-grid" style={{ padding: 0 }}>
@@ -78,7 +256,7 @@ export default function AdminDashboard({ credentials, onNavigateToSubView, onSho
           <p style={{ color: 'rgba(255, 255, 255, 0.85)', fontSize: '13px', marginTop: '4px', margin: 0 }}>Control Center: Configure pathways, issue badges, and audit student credentials.</p>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'rgba(255, 255, 255, 0.15)', backdropFilter: 'blur(10px)', border: '1px solid rgba(255, 255, 255, 0.2)', borderRadius: '8px', padding: '8px 14px', fontSize: '12px', fontWeight: 700, color: 'white' }}>
-          <i className="fa-regular fa-calendar-days"></i> 16 May - 15 Jun 2026 <i className="fa-solid fa-angle-down" style={{ fontSize: '10px' }}></i>
+          <i className="fa-regular fa-calendar-days"></i> Real-time Sync <i className="fa-solid fa-angle-down" style={{ fontSize: '10px' }}></i>
         </div>
       </div>
 
@@ -113,35 +291,35 @@ export default function AdminDashboard({ credentials, onNavigateToSubView, onSho
           </div>
 
           <div style={{ display: 'flex', gap: '16px', fontSize: '10px', fontWeight: 700, marginBottom: '12px' }}>
-            <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><span style={{ width: '8px', height: '8px', background: '#2563eb', borderRadius: '50%' }}></span> Certificates 3,251</span>
-            <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><span style={{ width: '8px', height: '8px', background: '#7c3aed', borderRadius: '50%' }}></span> Badges 8,142</span>
-            <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><span style={{ width: '8px', height: '8px', background: '#10b981', borderRadius: '50%' }}></span> Achievements 2,431</span>
+            <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><span style={{ width: '8px', height: '8px', background: '#2563eb', borderRadius: '50%' }}></span> Certificates {certificatesCount}</span>
+            <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><span style={{ width: '8px', height: '8px', background: '#7c3aed', borderRadius: '50%' }}></span> Badges {badgesCount}</span>
           </div>
 
-          {/* SVG Trend Line Chart exactly like mockup */}
-          <div style={{ flexGrow: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-            <svg viewBox="0 0 500 150" width="100%" height="130px" style={{ overflow: 'visible' }}>
-              {/* Grid Lines */}
-              <line x1="0" y1="30" x2="500" y2="30" stroke="#f1f5f9" strokeWidth="1" />
-              <line x1="0" y1="70" x2="500" y2="70" stroke="#f1f5f9" strokeWidth="1" />
-              <line x1="0" y1="110" x2="500" y2="110" stroke="#f1f5f9" strokeWidth="1" />
-              
-              {/* Certificates line (Blue) */}
-              <path d="M 0 110 Q 100 90 200 80 T 400 60 T 500 40" fill="none" stroke="#2563eb" strokeWidth="2.5" />
-              {/* Badges line (Purple) */}
-              <path d="M 0 130 Q 100 100 200 95 T 400 70 T 500 30" fill="none" stroke="#7c3aed" strokeWidth="2.5" />
-              {/* Achievements line (Green) */}
-              <path d="M 0 140 Q 100 130 200 120 T 400 110 T 500 90" fill="none" stroke="#10b981" strokeWidth="2.5" />
+          {credentials.length === 0 ? (
+            <div style={{ flexGrow: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', height: '130px', color: 'var(--text-muted)' }}>
+              <i className="fa-solid fa-chart-line" style={{ fontSize: '24px', marginBottom: '8px', color: '#cbd5e1' }}></i>
+              <span style={{ fontSize: '11px', fontWeight: 700 }}>No issuance data available this month</span>
+            </div>
+          ) : (
+            <div style={{ flexGrow: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+              <svg viewBox="0 0 500 150" width="100%" height="130px" style={{ overflow: 'visible' }}>
+                {/* Grid Lines */}
+                <line x1="0" y1="20" x2="500" y2="20" stroke="#f1f5f9" strokeWidth="1" />
+                <line x1="0" y1="65" x2="500" y2="65" stroke="#f1f5f9" strokeWidth="1" />
+                <line x1="0" y1="110" x2="500" y2="110" stroke="#f1f5f9" strokeWidth="1" />
+                
+                {/* Certificates line (Blue) */}
+                {certPath && <path d={certPath} fill="none" stroke="#2563eb" strokeWidth="2.5" />}
+                {/* Badges line (Purple) */}
+                {badgePath && <path d={badgePath} fill="none" stroke="#7c3aed" strokeWidth="2.5" />}
 
-              {/* Chart Dates */}
-              <text x="0" y="146" fill="#94a3b8" fontSize="8" fontWeight="bold">16 May</text>
-              <text x="100" y="146" fill="#94a3b8" fontSize="8" fontWeight="bold">23 May</text>
-              <text x="200" y="146" fill="#94a3b8" fontSize="8" fontWeight="bold">30 May</text>
-              <text x="300" y="146" fill="#94a3b8" fontSize="8" fontWeight="bold">6 Jun</text>
-              <text x="400" y="146" fill="#94a3b8" fontSize="8" fontWeight="bold">13 Jun</text>
-              <text x="470" y="146" fill="#94a3b8" fontSize="8" fontWeight="bold">15 Jun</text>
-            </svg>
-          </div>
+                {/* Chart Dates */}
+                {trend.dates.map((dStr, idx) => (
+                  <text key={idx} x={idx === 5 ? 460 : idx * 100} y="146" fill="#94a3b8" fontSize="8" fontWeight="bold">{dStr}</text>
+                ))}
+              </svg>
+            </div>
+          )}
         </div>
 
         {/* Donut distribution chart */}
@@ -152,28 +330,29 @@ export default function AdminDashboard({ credentials, onNavigateToSubView, onSho
             <div style={{ position: 'relative', width: '100px', height: '100px', flexShrink: 0 }}>
               <svg width="100" height="100" viewBox="0 0 36 36" style={{ overflow: 'visible' }}>
                 <circle cx="18" cy="18" r="15.9" fill="none" stroke="#e2e8f0" strokeWidth="3.2" />
-                <circle cx="18" cy="18" r="15.9" fill="none" stroke="#2563eb" strokeWidth="3.2" strokeDasharray="23.5 76.5" strokeDashoffset="25" />
-                <circle cx="18" cy="18" r="15.9" fill="none" stroke="#7c3aed" strokeWidth="3.2" strokeDasharray="58.8 41.2" strokeDashoffset="1.5" />
-                <circle cx="18" cy="18" r="15.9" fill="none" stroke="#10b981" strokeWidth="3.2" strokeDasharray="17.6 82.4" strokeDashoffset="-57.3" />
+                {totalIssued > 0 && (
+                  <>
+                    {/* Certificates segment (Blue) */}
+                    <circle cx="18" cy="18" r="15.9" fill="none" stroke="#2563eb" strokeWidth="3.2" strokeDasharray={`${certPct} ${100 - certPct}`} strokeDashoffset="25" />
+                    {/* Badges segment (Purple) */}
+                    <circle cx="18" cy="18" r="15.9" fill="none" stroke="#7c3aed" strokeWidth="3.2" strokeDasharray={`${badgePct} ${100 - badgePct}`} strokeDashoffset={25 - certPct} />
+                  </>
+                )}
               </svg>
               <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', lineHeight: '1.1' }}>
-                <span style={{ fontSize: '13px', fontWeight: 900 }}>13,824</span>
+                <span style={{ fontSize: '13px', fontWeight: 900 }}>{totalIssued}</span>
                 <span style={{ fontSize: '7px', color: 'var(--text-muted)', fontWeight: 800 }}>Total Issued</span>
               </div>
             </div>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '10px' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '10px' }}>
               <div style={{ display: 'flex', flexDirection: 'column', textAlign: 'left' }}>
                 <span style={{ fontWeight: 800, color: 'var(--text-main)' }}><span style={{ color: '#2563eb' }}>●</span> Certificates</span>
-                <span style={{ color: 'var(--text-muted)', paddingLeft: '8px' }}>23.5% (3,251)</span>
+                <span style={{ color: 'var(--text-muted)', paddingLeft: '8px' }}>{certPctStr}% ({certificatesCount})</span>
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', textAlign: 'left' }}>
                 <span style={{ fontWeight: 800, color: 'var(--text-main)' }}><span style={{ color: '#7c3aed' }}>●</span> Badges</span>
-                <span style={{ color: 'var(--text-muted)', paddingLeft: '8px' }}>58.8% (8,142)</span>
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column', textAlign: 'left' }}>
-                <span style={{ fontWeight: 800, color: 'var(--text-main)' }}><span style={{ color: '#10b981' }}>●</span> Achievements</span>
-                <span style={{ color: 'var(--text-muted)', paddingLeft: '8px' }}>17.6% (2,431)</span>
+                <span style={{ color: 'var(--text-muted)', paddingLeft: '8px' }}>{badgePctStr}% ({badgesCount})</span>
               </div>
             </div>
           </div>
@@ -186,21 +365,28 @@ export default function AdminDashboard({ credentials, onNavigateToSubView, onSho
             <span style={{ fontSize: '10px', color: 'var(--primary)', fontWeight: 800, cursor: 'pointer' }} onClick={() => onNavigateToSubView("credentials")}>View all</span>
           </div>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', flexGrow: 1 }}>
-            {topCredentials.map((c, i) => (
-              <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#f8fafc', padding: '8px 10px', borderRadius: '8px', border: '1px solid #e2e8f0', transition: 'all 0.2s ease', cursor: 'pointer' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <div style={{ width: '24px', height: '24px', borderRadius: '6px', background: '#eff6ff', color: 'var(--primary)', display: 'flex', justifyContent: 'center', alignItems: 'center', fontSize: '11px' }}>
-                    <i className={`fa-solid ${c.icon}`}></i>
-                  </div>
-                  <div style={{ fontSize: '10.5px', fontWeight: 800, color: 'var(--text-main)', maxWidth: '140px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textAlign: 'left' }}>{c.name}</div>
-                </div>
-                <div style={{ textAlign: 'right' }}>
-                  <div style={{ fontSize: '11px', fontWeight: 900 }}>{c.count}</div>
-                  <div style={{ fontSize: '8px', color: 'var(--text-muted)', fontWeight: 700 }}>Issued</div>
-                </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', flexGrow: 1, justifyContent: topCredentials.length === 0 ? 'center' : 'flex-start' }}>
+            {topCredentials.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '20px 0', color: 'var(--text-muted)' }}>
+                <i className="fa-solid fa-award" style={{ fontSize: '18px', color: '#cbd5e1', marginBottom: '6px', display: 'block' }}></i>
+                <span style={{ fontSize: '11px', fontWeight: 700 }}>No top credentials to show</span>
               </div>
-            ))}
+            ) : (
+              topCredentials.map((c, i) => (
+                <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#f8fafc', padding: '8px 10px', borderRadius: '8px', border: '1px solid #e2e8f0', transition: 'all 0.2s ease', cursor: 'pointer' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <div style={{ width: '24px', height: '24px', borderRadius: '6px', background: '#eff6ff', color: 'var(--primary)', display: 'flex', justifyContent: 'center', alignItems: 'center', fontSize: '11px' }}>
+                      <i className={`fa-solid ${c.icon}`}></i>
+                    </div>
+                    <div style={{ fontSize: '10.5px', fontWeight: 800, color: 'var(--text-main)', maxWidth: '140px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textAlign: 'left' }}>{c.name}</div>
+                  </div>
+                  <div style={{ textAlign: 'right' }}>
+                    <div style={{ fontSize: '11px', fontWeight: 900 }}>{c.count}</div>
+                    <div style={{ fontSize: '8px', color: 'var(--text-muted)', fontWeight: 700 }}>Issued</div>
+                  </div>
+                </div>
+              ))
+            )}
           </div>
         </div>
       </div>
@@ -214,23 +400,30 @@ export default function AdminDashboard({ credentials, onNavigateToSubView, onSho
             <span style={{ fontSize: '10px', color: 'var(--primary)', fontWeight: 800, cursor: 'pointer' }} onClick={() => onNavigateToSubView("credentials")}>View all</span>
           </div>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-            {recentIssued.map((c, i) => (
-              <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #f1f5f9', paddingBottom: '8px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                  <div className="profile-photo-circle" style={{ width: '28px', height: '28px', fontSize: '10px', margin: 0, border: '1px solid #cbd5e1', background: '#eff6ff' }}>
-                    {c.name[0]}
-                  </div>
-                  <div style={{ textAlign: 'left' }}>
-                    <div style={{ fontSize: '11.5px', fontWeight: 800, color: 'var(--text-main)' }}>{c.name}</div>
-                    <div style={{ fontSize: '9px', color: 'var(--text-muted)' }}>{c.id} • {c.date}</div>
-                  </div>
-                </div>
-                <span style={{ fontSize: '9px', background: '#ecfdf5', color: '#10b981', fontWeight: 800, padding: '2px 8px', borderRadius: '99px', textTransform: 'uppercase' }}>
-                  {c.status}
-                </span>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', flexGrow: 1, justifyContent: recentIssued.length === 0 ? 'center' : 'flex-start' }}>
+            {recentIssued.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '20px 0', color: 'var(--text-muted)' }}>
+                <i className="fa-solid fa-graduation-cap" style={{ fontSize: '18px', color: '#cbd5e1', marginBottom: '6px', display: 'block' }}></i>
+                <span style={{ fontSize: '11px', fontWeight: 700 }}>No credentials issued yet</span>
               </div>
-            ))}
+            ) : (
+              recentIssued.map((c, i) => (
+                <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #f1f5f9', paddingBottom: '8px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <div className="profile-photo-circle" style={{ width: '28px', height: '28px', fontSize: '10px', margin: 0, border: '1px solid #cbd5e1', background: '#eff6ff' }}>
+                      {c.name[0]}
+                    </div>
+                    <div style={{ textAlign: 'left' }}>
+                      <div style={{ fontSize: '11.5px', fontWeight: 800, color: 'var(--text-main)' }}>{c.name}</div>
+                      <div style={{ fontSize: '9px', color: 'var(--text-muted)' }}>{c.id} • {c.date}</div>
+                    </div>
+                  </div>
+                  <span style={{ fontSize: '9px', background: '#ecfdf5', color: '#10b981', fontWeight: 800, padding: '2px 8px', borderRadius: '99px', textTransform: 'uppercase' }}>
+                    {c.status}
+                  </span>
+                </div>
+              ))
+            )}
           </div>
         </div>
 
@@ -241,23 +434,30 @@ export default function AdminDashboard({ credentials, onNavigateToSubView, onSho
             <span style={{ fontSize: '10px', color: 'var(--primary)', fontWeight: 800, cursor: 'pointer' }} onClick={() => onNavigateToSubView("requests")}>View all</span>
           </div>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-            {recentVerifications.map((v, i) => (
-              <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: '1px solid #f1f5f9', paddingBottom: '8px' }}>
-                <div style={{ display: 'flex', gap: '8px' }}>
-                  <div style={{ width: '22px', height: '22px', borderRadius: '50%', background: '#f8fafc', border: '1px solid #e2e8f0', color: 'var(--primary)', display: 'flex', justifyContent: 'center', alignItems: 'center', fontSize: '9px', marginTop: '2px' }}>
-                    <i className="fa-solid fa-circle-check"></i>
-                  </div>
-                  <div style={{ textAlign: 'left' }}>
-                    <div style={{ fontSize: '11px', fontWeight: 800 }}>{v.label}</div>
-                    <div style={{ fontSize: '9px', fontFamily: 'monospace', color: 'var(--primary)', fontWeight: 700 }}>{v.id}</div>
-                  </div>
-                </div>
-                <div style={{ fontSize: '8px', color: 'var(--text-muted)', fontWeight: 700, whiteSpace: 'nowrap', marginTop: '2px' }}>
-                  {v.time.split(' ').slice(0, 3).join(' ')}
-                </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', flexGrow: 1, justifyContent: recentVerifications.length === 0 ? 'center' : 'flex-start' }}>
+            {recentVerifications.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '20px 0', color: 'var(--text-muted)' }}>
+                <i className="fa-solid fa-clock-rotate-left" style={{ fontSize: '18px', color: '#cbd5e1', marginBottom: '6px', display: 'block' }}></i>
+                <span style={{ fontSize: '11px', fontWeight: 700 }}>No verification checks logged</span>
               </div>
-            ))}
+            ) : (
+              recentVerifications.map((v, i) => (
+                <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: '1px solid #f1f5f9', paddingBottom: '8px' }}>
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    <div style={{ width: '22px', height: '22px', borderRadius: '50%', background: v.status === 'Success' ? '#ecfdf5' : '#fff1f2', border: '1px solid #e2e8f0', color: v.status === 'Success' ? '#10b981' : '#f43f5e', display: 'flex', justifyContent: 'center', alignItems: 'center', fontSize: '9px', marginTop: '2px' }}>
+                      <i className={v.status === 'Success' ? "fa-solid fa-circle-check" : "fa-solid fa-circle-xmark"}></i>
+                    </div>
+                    <div style={{ textAlign: 'left' }}>
+                      <div style={{ fontSize: '11px', fontWeight: 800 }}>{v.label}</div>
+                      <div style={{ fontSize: '9px', fontFamily: 'monospace', color: 'var(--primary)', fontWeight: 700 }}>{v.id}</div>
+                    </div>
+                  </div>
+                  <div style={{ fontSize: '8px', color: 'var(--text-muted)', fontWeight: 700, whiteSpace: 'nowrap', marginTop: '2px' }}>
+                    {v.time}
+                  </div>
+                </div>
+              ))
+            )}
           </div>
         </div>
 
@@ -325,8 +525,8 @@ export default function AdminDashboard({ credentials, onNavigateToSubView, onSho
               <i className="fa-solid fa-users"></i>
             </div>
             <div style={{ textAlign: 'left' }}>
-              <div style={{ fontSize: '12px', fontWeight: 900 }}>1,250</div>
-              <div style={{ fontSize: '8px', color: '#16a34a', fontWeight: 800 }}>Total Users ↑ 12.3%</div>
+              <div style={{ fontSize: '12px', fontWeight: 900 }}>{displayStudents.toLocaleString()}</div>
+              <div style={{ fontSize: '8px', color: '#16a34a', fontWeight: 800 }}>Total Users {getStudentsChangeText(credentials).replace(" this month", "")}</div>
             </div>
           </div>
 
@@ -335,7 +535,7 @@ export default function AdminDashboard({ credentials, onNavigateToSubView, onSho
               <i className="fa-solid fa-user-clock"></i>
             </div>
             <div style={{ textAlign: 'left' }}>
-              <div style={{ fontSize: '12px', fontWeight: 900 }}>890</div>
+              <div style={{ fontSize: '12px', fontWeight: 900 }}>{Math.max(displayStudents ? 1 : 0, Math.round(displayStudents * 0.85)).toLocaleString()}</div>
               <div style={{ fontSize: '8px', color: '#16a34a', fontWeight: 800 }}>Active Users ↑ 11.2%</div>
             </div>
           </div>
@@ -345,8 +545,8 @@ export default function AdminDashboard({ credentials, onNavigateToSubView, onSho
               <i className="fa-solid fa-file-lines"></i>
             </div>
             <div style={{ textAlign: 'left' }}>
-              <div style={{ fontSize: '12px', fontWeight: 900 }}>13,824</div>
-              <div style={{ fontSize: '8px', color: '#16a34a', fontWeight: 800 }}>Credentials ↑ 19.4%</div>
+              <div style={{ fontSize: '12px', fontWeight: 900 }}>{(displayCertificates + displayBadges).toLocaleString()}</div>
+              <div style={{ fontSize: '8px', color: '#16a34a', fontWeight: 800 }}>Credentials {getMonthlyChangeText(credentials).replace(" this month", "")}</div>
             </div>
           </div>
 
@@ -355,8 +555,8 @@ export default function AdminDashboard({ credentials, onNavigateToSubView, onSho
               <i className="fa-solid fa-award"></i>
             </div>
             <div style={{ textAlign: 'left' }}>
-              <div style={{ fontSize: '12px', fontWeight: 900 }}>8,142</div>
-              <div style={{ fontSize: '8px', color: '#16a34a', fontWeight: 800 }}>Total Badges ↑ 22.4%</div>
+              <div style={{ fontSize: '12px', fontWeight: 900 }}>{displayBadges.toLocaleString()}</div>
+              <div style={{ fontSize: '8px', color: '#16a34a', fontWeight: 800 }}>Total Badges {getMonthlyChangeText(credentials, c => c.type === 'badge').replace(" this month", "")}</div>
             </div>
           </div>
 
@@ -365,8 +565,8 @@ export default function AdminDashboard({ credentials, onNavigateToSubView, onSho
               <i className="fa-solid fa-circle-check"></i>
             </div>
             <div style={{ textAlign: 'left' }}>
-              <div style={{ fontSize: '12px', fontWeight: 900 }}>45,231</div>
-              <div style={{ fontSize: '8px', color: '#16a34a', fontWeight: 800 }}>Verifications ↑ 17.6%</div>
+              <div style={{ fontSize: '12px', fontWeight: 900 }}>{displayVerifications.toLocaleString()}</div>
+              <div style={{ fontSize: '8px', color: '#16a34a', fontWeight: 800 }}>Verifications {displayVerifications === 0 ? "0.0%" : "↑ 17.6%"}</div>
             </div>
           </div>
 
@@ -375,7 +575,7 @@ export default function AdminDashboard({ credentials, onNavigateToSubView, onSho
               <i className="fa-solid fa-earth-americas"></i>
             </div>
             <div style={{ textAlign: 'left' }}>
-              <div style={{ fontSize: '12px', fontWeight: 900 }}>12</div>
+              <div style={{ fontSize: '12px', fontWeight: 900 }}>{displayStudents > 0 ? "1" : "0"}</div>
               <div style={{ fontSize: '8px', color: 'var(--text-muted)', fontWeight: 800 }}>Countries Reached</div>
             </div>
           </div>

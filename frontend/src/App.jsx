@@ -4,50 +4,42 @@ import Auth from './pages/Auth';
 import MyCredentials from './pages/MyCredentials';
 import BadgeDetail from './pages/BadgeDetail';
 import PublicProfile from './pages/PublicProfile';
-import Collections from './pages/Collections';
-import ActivityFeed from './pages/ActivityFeed';
 import Settings from './pages/Settings';
 import AdminPanel from './pages/AdminPanel';
+import StudentDashboard from './pages/StudentDashboard';
 import BadgeCatalog from './pages/BadgeCatalog';
-
+import ActivityFeed from './pages/ActivityFeed';
 
 export default function App() {
   const [user, setUser] = useState(null);
   const [currentView, setCurrentView] = useState('home'); 
   const [adminSubView, setAdminSubView] = useState('dashboard');
-  // Views: 'home', 'auth', 'my-credentials', 'my-badges', 'collections', 'skills', 'activity', 'public-profile', 'settings', 'admin', 'credential-detail'
+  // Views: 'home', 'auth', 'dashboard', 'my-credentials', 'profile', 'settings', 'admin', 'credential-detail', 'catalog', 'activity'
+  
+  const [platformMetrics, setPlatformMetrics] = useState({
+    certificatesIssued: 24,
+    badgesIssued: 18,
+    studentsCount: 12,
+    verifiedToday: 0,
+    downloadsToday: 0,
+    linkedinShares: 0
+  });
+  const [recentVerified, setRecentVerified] = useState([]);
   
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [notification, setNotification] = useState('');
   const [credentials, setCredentials] = useState([]);
   const [selectedCred, setSelectedCred] = useState(null);
 
-  // Simulated Inbox state (Developer Sandbox)
-  const [inboxOpen, setInboxOpen] = useState(false);
-  const [simulatedEmails, setSimulatedEmails] = useState([]);
-  
   // Public profile search username
   const [profileSearchQuery, setProfileSearchQuery] = useState('amityadav');
-
-  // Metrics counters state
-  const [metrics, setMetrics] = useState({
-    certificatesIssued: 0,
-    badgesIssued: 0,
-    studentsCount: 0,
-    verifiedToday: 0,
-    downloadsToday: 0,
-    linkedinShares: 0
-  });
-
-  // Recent credentials feed
-  const [recentCredentials, setRecentCredentials] = useState([]);
 
   // Verification Search states
   const [activeVerifyTab, setActiveVerifyTab] = useState('id');
   const [searchId, setSearchId] = useState('');
-  const [searchEmail, setSearchEmail] = useState('');
-  const [searchBadgeId, setSearchBadgeId] = useState('');
-  const [searchUrl, setSearchUrl] = useState('');
+  const searchEmail = '';
+  const searchBadgeId = '';
+  const searchUrl = '';
   
   const [nameType, setNameType] = useState('event'); 
   const [searchName, setSearchName] = useState('');
@@ -67,8 +59,11 @@ export default function App() {
   const canvasRef = useRef(null);
 
   // Lazy authentication modal state
-  const [lazyEmail, setLazyEmail] = useState('');
+  const [lazyEmail, _setLazyEmail] = useState('');
   const [showLazyPrompt, setShowLazyPrompt] = useState(false);
+
+  // FAQ accordion open states
+  const [faqOpenIndex, setFaqOpenIndex] = useState(null);
 
   // Show Toast
   const showNotification = (msg) => {
@@ -76,11 +71,31 @@ export default function App() {
     setTimeout(() => setNotification(''), 4000);
   };
 
+  const fetchPlatformData = async () => {
+    try {
+      const res = await fetch('/api/credentials/metrics');
+      if (res.ok) {
+        const data = await res.json();
+        setPlatformMetrics(data);
+      }
+    } catch (err) {
+      console.error("Failed to load platform metrics:", err);
+    }
+
+    try {
+      const res = await fetch('/api/credentials/recent');
+      if (res.ok) {
+        const data = await res.json();
+        setRecentVerified(data);
+      }
+    } catch (err) {
+      console.error("Failed to load recent credentials:", err);
+    }
+  };
+
   useEffect(() => {
     checkSession();
-    fetchMetrics();
-    fetchRecentCredentials();
-    fetchSimulatedEmails();
+    fetchPlatformData();
 
     // Check if query string verification links loaded
     const params = new URLSearchParams(window.location.search);
@@ -88,8 +103,16 @@ export default function App() {
     if (verifyId) {
       setSearchId(verifyId);
       setActiveVerifyTab('id');
+      // eslint-disable-next-line no-use-before-define
       handleVerify(null, 'id', verifyId);
     }
+
+    const usernameParam = params.get('username');
+    if (usernameParam) {
+      setProfileSearchQuery(usernameParam);
+      setCurrentView('public-profile');
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const checkSession = async () => {
@@ -103,7 +126,7 @@ export default function App() {
         }
       }
     } catch (err) {
-      console.log("No active session found.");
+      console.log("No active session found.", err);
     }
   };
 
@@ -115,43 +138,7 @@ export default function App() {
         setCredentials(data);
       }
     } catch (err) {
-      console.error(err);
-    }
-  };
-
-  const fetchMetrics = async () => {
-    try {
-      const res = await fetch('/api/credentials/metrics');
-      if (res.ok) {
-        const data = await res.json();
-        setMetrics(data);
-      }
-    } catch (err) {
-      console.log(err);
-    }
-  };
-
-  const fetchRecentCredentials = async () => {
-    try {
-      const res = await fetch('/api/credentials/recent');
-      if (res.ok) {
-        const data = await res.json();
-        setRecentCredentials(data);
-      }
-    } catch (err) {
-      console.log(err);
-    }
-  };
-
-  const fetchSimulatedEmails = async () => {
-    try {
-      const res = await fetch('/api/emails/recent');
-      if (res.ok) {
-        const data = await res.json();
-        setSimulatedEmails(data);
-      }
-    } catch (err) {
-      console.log(err);
+      console.error("Failed to fetch wallet:", err);
     }
   };
 
@@ -164,6 +151,7 @@ export default function App() {
       setCurrentView('home');
       showNotification("Signed out successfully");
     } catch (err) {
+      console.error("Sign out error:", err);
       showNotification("Failed to sign out");
     }
   };
@@ -208,7 +196,6 @@ export default function App() {
 
       if (res.ok) {
         setVerifyResult(data);
-        fetchMetrics();
         setTimeout(() => {
           document.getElementById('verify-results-anchor')?.scrollIntoView({ behavior: 'smooth' });
         }, 150);
@@ -216,6 +203,7 @@ export default function App() {
         setVerifyResult({ success: false, message: data.error || "Query failed." });
       }
     } catch (err) {
+      console.error("Verification error:", err);
       setVerifyResult({ success: false, message: "Server connection failure." });
     }
   };
@@ -236,76 +224,6 @@ export default function App() {
       }
     } catch (err) {
       console.error(err);
-    }
-  };
-
-  // Simulated Quiz Results Publisher (Integrator Panel)
-  const triggerQuizPublish = async () => {
-    const payload = {
-      quizId: "quiz-ds-java-2026",
-      quizTitle: "Quiz Master",
-      participants: [
-        { name: "Amit Kumar Yadav", email: "student@mscprpcem.tech", score: 92 },
-        { name: "Sneha Patil", email: "sneha@mscprpcem.tech", score: 75 },
-        { name: "Rohan Deshmukh", email: "rohan@mscprpcem.tech", score: 40 }
-      ],
-      publishDate: "20 July 2026",
-      rules: { passingScore: 50, goldScore: 90 }
-    };
-
-    try {
-      const res = await fetch('/api/integration/publish-results', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
-      const data = await res.json();
-
-      if (res.ok) {
-        showNotification("Quiz Platform published results successfully!");
-        fetchRecentCredentials();
-        fetchMetrics();
-        fetchSimulatedEmails();
-        // If logged in as student, refresh wallet
-        if (user && user.email === 'student@mscprpcem.tech') {
-          fetchMyWallet();
-        }
-      } else {
-        showNotification(`Error: ${data.error}`);
-      }
-    } catch (err) {
-      showNotification("Failed to integrate quiz publisher.");
-    }
-  };
-
-  // View Badge click (First login lazy registration simulation)
-  const handleEmailViewBadge = (emailBody) => {
-    // Extract ID and recipient email
-    const idMatch = emailBody.match(/MSC-[A-Z]+-\d+/i);
-    const emailMatch = emailBody.match(/Congratulations,\s+([^\n!]+)/i);
-    
-    if (idMatch) {
-      const credId = idMatch[0];
-      setInboxOpen(false);
-
-      // Search for the credential details
-      fetch(`/api/credentials/verify?credentialId=${credId}`)
-        .then(res => res.json())
-        .then(data => {
-          if (data.success && data.record) {
-            setSelectedCred(data.record);
-            
-            // If already logged in, redirect to details, else trigger Lazy Authentication
-            if (user) {
-              setCurrentView('credential-detail');
-            } else {
-              setLazyEmail(data.record.recipient_email);
-              setShowLazyPrompt(true);
-            }
-          } else {
-            showNotification("Failed to locate credential details.");
-          }
-        });
     }
   };
 
@@ -337,6 +255,7 @@ export default function App() {
         showNotification(`Auth Error: ${data.error}`);
       }
     } catch (err) {
+      console.error("Lazy auth submission failed:", err);
       showNotification("Lazy authentication failed.");
     }
   };
@@ -386,6 +305,7 @@ export default function App() {
           setCameraError(true);
         });
       } catch (err) {
+        console.error("Camera init failed:", err);
         setCameraError(true);
       }
     }, 300);
@@ -395,7 +315,9 @@ export default function App() {
     if (scannerRef.current) {
       try {
         scannerRef.current.stop();
-      } catch (e) {}
+      } catch (err) {
+        console.error("Failed to stop scanner:", err);
+      }
     }
     setCameraActive(false);
   };
@@ -412,22 +334,75 @@ export default function App() {
     }, 1500);
   };
 
-  const handleFileUpload = (e) => {
+  const handleFileUpload = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
 
-    showNotification("Decoding certificate metadata...");
-    setTimeout(() => {
-      const name = file.name.toUpperCase();
-      let targetId = "MSC-BDG-00231";
+    showNotification("Processing certificate image...");
+
+    // Helper for fallback name matching
+    const fallbackNameMatching = (f) => {
+      const name = f.name.toUpperCase();
       const match = name.match(/MSC-[A-Z]+-\d+/i);
       if (match) {
-        targetId = match[0].toUpperCase();
+        const targetId = match[0].toUpperCase();
+        setSearchId(targetId);
+        setActiveVerifyTab('id');
+        handleVerify(null, 'id', targetId);
+        showNotification(`Credential ID detected in filename: ${targetId}`);
+      } else {
+        showNotification("Could not read QR code or ID from filename. Please upload a valid certificate image.");
       }
-      setSearchId(targetId);
-      setActiveVerifyTab('id');
-      handleVerify(null, 'id', targetId);
-    }, 1000);
+    };
+
+    try {
+      if (!window.Html5Qrcode) {
+        console.warn("Html5Qrcode not loaded globally, falling back to filename parse.");
+        fallbackNameMatching(file);
+        return;
+      }
+
+      // Initialize the offscreen Html5Qrcode reader
+      const html5QrCode = new window.Html5Qrcode("hidden-qr-reader");
+      
+      try {
+        const decodedText = await html5QrCode.scanFile(file, false);
+        console.log("Decoded Text from uploaded image QR:", decodedText);
+        
+        let targetId = null;
+        try {
+          const urlObj = new URL(decodedText);
+          targetId = urlObj.searchParams.get("verifyId");
+        } catch {
+          // Check if it's the raw ID
+          const match = decodedText.match(/MSC-[A-Z]+-\d+/i);
+          if (match) {
+            targetId = match[0].toUpperCase();
+          }
+        }
+
+        if (targetId) {
+          setSearchId(targetId);
+          setActiveVerifyTab('id');
+          handleVerify(null, 'id', targetId);
+          showNotification(`Authenticated QR Code detected! ID: ${targetId}`);
+        } else {
+          fallbackNameMatching(file);
+        }
+      } catch (scanErr) {
+        console.log("QR decode failed or QR not found, trying filename:", scanErr);
+        fallbackNameMatching(file);
+      } finally {
+        try {
+          await html5QrCode.clear();
+        } catch {
+          // ignore
+        }
+      }
+    } catch (err) {
+      console.error("File upload decoding error:", err);
+      fallbackNameMatching(file);
+    }
   };
 
   const handleCopyLink = async (cred) => {
@@ -436,7 +411,9 @@ export default function App() {
       await navigator.clipboard.writeText(verifyUrl);
       showNotification("Credential verify link copied!");
       fetch('/api/credentials/increment-share', { method: 'POST' });
-    } catch (e) {}
+    } catch (err) {
+      console.error("Copy link failed:", err);
+    }
   };
 
   // LinkedIn Certification Link
@@ -512,35 +489,83 @@ export default function App() {
     ctx.font = '500 14px Manrope, sans-serif';
     ctx.fillText(cred.description || '', canvas.width / 2, 620);
 
-    // Signatures
+    // Signatures (Shifted up slightly to fit verification protocol footer)
     ctx.textAlign = 'left';
     ctx.fillStyle = '#0f172a';
     ctx.font = '700 16px Manrope, sans-serif';
-    ctx.fillText(`Issued: ${cred.issue_date}`, 120, 760);
+    ctx.fillText(`Issued: ${cred.issue_date}`, 120, 730);
     ctx.font = '500 13px Manrope, sans-serif';
     ctx.fillStyle = '#64748b';
-    ctx.fillText(`Credential ID: ${cred.id}`, 120, 790);
+    ctx.fillText(`Credential ID: ${cred.id}`, 120, 760);
 
     ctx.textAlign = 'right';
     ctx.fillStyle = '#0f172a';
     ctx.font = 'italic 700 18px Georgia, serif';
-    ctx.fillText('Club President', canvas.width - 120, 760);
+    ctx.fillText('Club President', canvas.width - 120, 730);
     ctx.font = '500 13px Manrope, sans-serif';
     ctx.fillStyle = '#64748b';
-    ctx.fillText('Microsoft Student Club Chapter', canvas.width - 120, 790);
+    ctx.fillText('Microsoft Student Club Chapter', canvas.width - 120, 760);
 
     // Stamp
     ctx.textAlign = 'center';
     ctx.fillStyle = '#10b981';
     ctx.beginPath();
-    ctx.arc(canvas.width / 2, 760, 45, 0, Math.PI * 2);
+    ctx.arc(canvas.width / 2, 730, 45, 0, Math.PI * 2);
     ctx.fill();
 
     ctx.fillStyle = '#ffffff';
     ctx.font = '800 12px Outfit, sans-serif';
-    ctx.fillText('VERIFIED', canvas.width / 2, 755);
+    ctx.fillText('VERIFIED', canvas.width / 2, 725);
     ctx.font = '700 9px Outfit, sans-serif';
-    ctx.fillText('MSC SECURITY', canvas.width / 2, 772);
+    ctx.fillText('MSC SECURITY', canvas.width / 2, 742);
+
+    // Premium Divider line separating certificate body from Verification Protocol
+    ctx.strokeStyle = '#e2e8f0';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(100, 810);
+    ctx.lineTo(canvas.width - 100, 810);
+    ctx.stroke();
+
+    // Verification Info on bottom-left
+    const verifyUrl = `${window.location.origin}?verifyId=${cred.id}`;
+    ctx.textAlign = 'left';
+    ctx.fillStyle = '#2563eb';
+    ctx.font = '800 12px Outfit, sans-serif';
+    ctx.fillText('OFFICIAL VERIFICATION PROTOCOL', 120, 850);
+    ctx.font = '500 14px Manrope, sans-serif';
+    ctx.fillStyle = '#475569';
+    ctx.fillText('This achievement is cryptographically logged and registered in the Microsoft Student Club PRPCEM Registry.', 120, 880);
+    ctx.fillText('Scan the QR code or visit the verification portal below to check full-scope authenticity metadata.', 120, 905);
+    ctx.fillStyle = '#1e3a8a';
+    ctx.font = '700 14px Outfit, sans-serif';
+    ctx.fillText(`Verification Portal: ${verifyUrl}`, 120, 940);
+
+    // Fetch and Draw dynamic QR code image on the bottom-right corner
+    const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(verifyUrl)}`;
+    try {
+      const qrImg = await new Promise((resolve, reject) => {
+        const img = new Image();
+        img.crossOrigin = "anonymous";
+        img.onload = () => resolve(img);
+        img.onerror = (err) => reject(err);
+        img.src = qrCodeUrl;
+      });
+
+      if (qrImg) {
+        // Draw white frame background for QR Code
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(canvas.width - 240, 830, 120, 120);
+        ctx.strokeStyle = '#cbd5e1';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(canvas.width - 240, 830, 120, 120);
+
+        // Draw QR Image
+        ctx.drawImage(qrImg, canvas.width - 235, 835, 110, 110);
+      }
+    } catch (qrErr) {
+      console.warn("Could not render QR code on certificate canvas, exporting without it:", qrErr);
+    }
 
     const dataURL = canvas.toDataURL('image/png');
     const link = document.createElement('a');
@@ -549,8 +574,27 @@ export default function App() {
     link.click();
 
     fetch('/api/credentials/increment-download', { method: 'POST' });
-    showNotification("Downloaded successfully!");
+    showNotification("Downloaded successfully with Verification QR Code!");
   };
+
+  const faqs = [
+    {
+      q: "How do I verify a Microsoft Student Club credential?",
+      a: "Enter the unique Credential ID or search by the student's full name in the verification form on our homepage. The system will instantly pull up the authentic achievement record from our secure registry."
+    },
+    {
+      q: "How can I add my earned certificates and badges to LinkedIn?",
+      a: "Simply log in to your Student Portal, go to 'My Credentials', click the 'Share' button, and choose 'Add to LinkedIn'. This auto-fills the verification link, credential ID, and MSC PRPCEM organization details directly on your profile."
+    },
+    {
+      q: "Can anyone find my student profile?",
+      a: "Only if you toggle 'Public Profile Visibility' to active in your Account Settings. If disabled, your profile remains secure and hidden from public search engines, and your credentials can only be verified by someone holding your direct Credential ID."
+    },
+    {
+      q: "How are certificates and badges automatically issued?",
+      a: "Whenever you complete a Microsoft Student Club workshop, participate in our weekly quizzes, or contribute as a mentor, the Club Administration publishes the official event results. Our system automatically processes your score rules, issues your certified badges, and sends an automatic email notification directly to your mailbox."
+    }
+  ];
 
   return (
     <div className="app-container">
@@ -563,7 +607,7 @@ export default function App() {
             <span className="brand-sub">
               PRPCEM
               {user && user.role === 'admin' && (
-                <span style={{ background: '#2563eb', color: 'white', padding: '1px 6px', borderRadius: '4px', fontSize: '8px', fontWeight: 800, textTransform: 'uppercase', display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
+                <span style={{ background: '#2563eb', color: 'white', padding: '1px 6px', borderRadius: '4px', fontSize: '8px', fontWeight: 800, textTransform: 'uppercase', display: 'inline-flex', alignItems: 'center', gap: '3px', marginLeft: '6px' }}>
                   <i className="fa-solid fa-user-shield" style={{ fontSize: '8px' }}></i> Admin
                 </span>
               )}
@@ -571,51 +615,46 @@ export default function App() {
           </div>
         </a>
 
-        {/* Middle search bar if logged in, otherwise standard public navbar links */}
-        {user ? (
-          <div className="navbar-search-container">
-            <i className="fa-solid fa-magnifying-glass" style={{ color: 'var(--text-muted)', fontSize: '12px' }}></i>
-            <input 
-              type="text" 
-              placeholder="Search for credentials, badges or skills..." 
-              className="navbar-search-input" 
-              readOnly
-            />
-          </div>
-        ) : (
-          <nav className="nav-links">
-            <a href="#" className={`nav-link ${currentView === 'home' ? 'active' : ''}`} onClick={() => { setCurrentView('home'); setVerifyResult(null); }}>Home</a>
-            <a href="#" className={`nav-link ${currentView === 'badge-catalog' ? 'active' : ''}`} onClick={() => setCurrentView('badge-catalog')}>Badge Catalog</a>
-          </nav>
-        )}
+        {/* Navigation links */}
+        <nav className="nav-links">
+          <a href="#" className={`nav-link ${currentView === 'home' ? 'active' : ''}`} onClick={() => { setCurrentView('home'); setVerifyResult(null); }}>Home</a>
+          <a href="#" className={`nav-link ${currentView === 'catalog' ? 'active' : ''}`} onClick={() => { setCurrentView('catalog'); setVerifyResult(null); }}>Badge Directory</a>
+          {user && (
+            <>
+              <a href="#" className={`nav-link ${currentView === 'dashboard' ? 'active' : ''}`} onClick={() => { setCurrentView('dashboard'); fetchMyWallet(); }}>Portal</a>
+              <a href="#" className={`nav-link ${currentView === 'my-credentials' ? 'active' : ''}`} onClick={() => { setCurrentView('my-credentials'); fetchMyWallet(); }}>My Credentials</a>
+            </>
+          )}
+        </nav>
 
         <div className="nav-actions">
           {user ? (
             <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-              {/* Notification bells exactly matching screenshot */}
-              <button className="help-btn" style={{ position: 'relative' }} onClick={() => showNotification("You have 3 new notifications.")}>
+              {/* Notification bells */}
+              <button className="help-btn nav-icon-btn" style={{ position: 'relative' }} onClick={() => showNotification("You have 3 new notifications.")}>
                 <i className="fa-regular fa-bell"></i>
                 <span style={{ position: 'absolute', top: '2px', right: '2px', width: '6px', height: '6px', background: '#2563eb', borderRadius: '50%' }}></span>
               </button>
 
-              <button className="help-btn" onClick={() => showNotification("No new private messages.")}>
+              <button className="help-btn nav-icon-btn" onClick={() => showNotification("No new private messages.")}>
                 <i className="fa-regular fa-envelope"></i>
               </button>
 
-              {/* User profile dropdown exactly matching screenshot */}
+              {/* User profile dropdown */}
               <div 
                 className="navbar-profile-wrapper"
                 onClick={() => setCurrentView('settings')}
+                style={{ cursor: 'pointer' }}
               >
                 <div className="profile-photo-circle" style={{ width: '32px', height: '32px', fontSize: '12px', margin: 0, border: '1px solid #cbd5e1', background: '#eff6ff' }}>
                   {user.name ? user.name[0].toUpperCase() : 'A'}
                 </div>
-                <div style={{ display: 'flex', flexDirection: 'column', lineHeight: '1.2' }}>
+                <div className="profile-name-details" style={{ display: 'flex', flexDirection: 'column', lineHeight: '1.2' }}>
                   <span style={{ fontSize: '12px', fontWeight: 800, color: 'var(--text-main)' }}>
-                    {user.name || 'Amit Kumar Yadav'}
+                    {user.name || 'Student'}
                   </span>
                   <span style={{ fontSize: '9px', color: 'var(--text-muted)', fontWeight: 700 }}>
-                    {user.role === 'admin' ? 'Control Panel' : 'View Profile'}
+                    {user.role === 'admin' ? 'Control Panel' : 'Settings'}
                   </span>
                 </div>
               </div>
@@ -663,15 +702,13 @@ export default function App() {
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                 <a href="#" className="nav-link" onClick={() => { setCurrentView('home'); setMobileMenuOpen(false); }}>Home</a>
-                <a href="#" className="nav-link" onClick={() => { setCurrentView('badge-catalog'); setMobileMenuOpen(false); }}>Badge Catalog</a>
-
+                <a href="#" className="nav-link" onClick={() => { setCurrentView('catalog'); setMobileMenuOpen(false); }}>Badge Directory</a>
                 
                 {user && (
                   <>
+                    <a href="#" className="nav-link" onClick={() => { setCurrentView('dashboard'); setMobileMenuOpen(false); }}>Portal Dashboard</a>
                     <a href="#" className="nav-link" onClick={() => { setCurrentView('my-credentials'); setMobileMenuOpen(false); }}>My Credentials</a>
-                    <a href="#" className="nav-link" onClick={() => { setCurrentView('my-badges'); setMobileMenuOpen(false); }}>My Badges</a>
-                    <a href="#" className="nav-link" onClick={() => { setCurrentView('collections'); setMobileMenuOpen(false); }}>Collections</a>
-                    <a href="#" className="nav-link" onClick={() => { setCurrentView('activity'); setMobileMenuOpen(false); }}>Activity</a>
+                    <a href="#" className="nav-link" onClick={() => { setCurrentView('profile'); setMobileMenuOpen(false); }}>My Public Profile</a>
                     <a href="#" className="nav-link" onClick={() => { setCurrentView('settings'); setMobileMenuOpen(false); }}>Settings</a>
                   </>
                 )}
@@ -698,29 +735,8 @@ export default function App() {
       {/* Main Pages Router */}
       <main className="main-content">
         
-        {/* DEV INTEGRATOR SIMULATOR BAR */}
-        {currentView === 'home' && (
-          <div className="wallet-wrapper" style={{ marginTop: '16px', marginBottom: '-16px' }}>
-            <div className="integrator-panel">
-              <h3>
-                <i className="fa-solid fa-code-fork" style={{ color: '#d97706' }}></i> 
-                Quiz Platform Integration Simulator
-              </h3>
-              <p style={{ fontSize: '12px', color: '#78350f', margin: '0 0 10px 0', lineHeight: 1.4 }}>
-                Simulate your Quiz Platform finalizing result score rules and clicking <strong>Publish Results</strong>. 
-                This will automatically evaluate student scores, award badges/certificates in the DB, and trigger simulated email notifications.
-              </p>
-              <button className="badge-btn primary-btn" onClick={triggerQuizPublish} style={{ padding: '8px 18px', fontSize: '11px', display: 'inline-flex' }}>
-                <i className="fa-solid fa-cloud-arrow-up"></i> Simulate Publish Quiz Results
-              </button>
-            </div>
-          </div>
-        )}
-
-
-
         {/* Authenticated dashboard pages wrap around Left Sidebar layout */}
-        {user && ['my-credentials', 'my-badges', 'collections', 'activity', 'settings', 'admin'].includes(currentView) ? (
+        {user && ['dashboard', 'my-credentials', 'profile', 'settings', 'admin', 'activity'].includes(currentView) ? (
           <div className="dashboard-layout-wrapper">
             <aside className="dashboard-sidebar">
               <ul className="sidebar-menu-list">
@@ -793,12 +809,6 @@ export default function App() {
                       <i className="fa-solid fa-circle-check"></i> Requests
                     </li>
                     <li 
-                      className={`sidebar-menu-item ${adminSubView === 'logs' ? 'active' : ''}`} 
-                      onClick={() => setAdminSubView('logs')}
-                    >
-                      <i className="fa-solid fa-clock-rotate-left"></i> Logs
-                    </li>
-                    <li 
                       className={`sidebar-menu-item ${adminSubView === 'revoked' ? 'active' : ''}`} 
                       onClick={() => setAdminSubView('revoked')}
                     >
@@ -830,7 +840,7 @@ export default function App() {
                     <li 
                       style={{ borderTop: '1px dashed #cbd5e1', paddingTop: '10px', marginTop: '6px', borderRadius: '0' }}
                       className="sidebar-menu-item" 
-                      onClick={() => { setCurrentView('my-credentials'); fetchMyWallet(); }}
+                      onClick={() => { setCurrentView('dashboard'); fetchMyWallet(); }}
                     >
                       <i className="fa-solid fa-circle-chevron-left"></i> Student Panel
                     </li>
@@ -838,29 +848,31 @@ export default function App() {
                 ) : (
                   <>
                     <li 
-                      className={`sidebar-menu-item ${currentView === 'my-credentials' ? 'active' : ''}`} 
-                      onClick={() => { setCurrentView('my-credentials'); fetchMyWallet(); }}
+                      className={`sidebar-menu-item ${currentView === 'dashboard' ? 'active' : ''}`} 
+                      onClick={() => { setCurrentView('dashboard'); fetchMyWallet(); }}
                     >
                       <i className="fa-solid fa-house"></i> Dashboard
                     </li>
                     <li 
-                      className={`sidebar-menu-item ${currentView === 'my-badges' ? 'active' : ''}`} 
-                      onClick={() => { setCurrentView('my-badges'); fetchMyWallet(); }}
+                      className={`sidebar-menu-item ${currentView === 'my-credentials' ? 'active' : ''}`} 
+                      onClick={() => { setCurrentView('my-credentials'); fetchMyWallet(); }}
                     >
                       <i className="fa-solid fa-file-contract"></i> My Credentials
-                    </li>
-                    <li 
-                      className={`sidebar-menu-item ${currentView === 'collections' ? 'active' : ''}`} 
-                      onClick={() => setCurrentView('collections')}
-                    >
-                      <i className="fa-solid fa-cubes"></i> Collections
                     </li>
                     <li 
                       className={`sidebar-menu-item ${currentView === 'activity' ? 'active' : ''}`} 
                       onClick={() => setCurrentView('activity')}
                     >
-                      <i className="fa-solid fa-clock-rotate-left"></i> Activity
+                      <i className="fa-solid fa-clock-rotate-left"></i> Activity Timeline
                     </li>
+                    {user.role !== 'admin' && (
+                      <li 
+                        className={`sidebar-menu-item ${currentView === 'profile' ? 'active' : ''}`} 
+                        onClick={() => setCurrentView('profile')}
+                      >
+                        <i className="fa-solid fa-user-check"></i> Public Profile
+                      </li>
+                    )}
                     <li 
                       className={`sidebar-menu-item ${currentView === 'settings' ? 'active' : ''}`} 
                       onClick={() => setCurrentView('settings')}
@@ -882,13 +894,15 @@ export default function App() {
               
               {currentView !== 'admin' && (
                 <>
-                  <div className="sidebar-profile-promo-card">
-                    <h5>Your Public Profile</h5>
-                    <p>Showcase your achievements with a public profile.</p>
-                    <button className="public-profile-anchor" style={{ width: '100%', justifyContent: 'center' }} onClick={() => setCurrentView('public-profile')}>
-                      View Public Profile
-                    </button>
-                  </div>
+                  {user.role !== 'admin' && (
+                    <div className="sidebar-profile-promo-card">
+                      <h5>Showcase Profile</h5>
+                      <p>Share your credentials and portfolio with a public page.</p>
+                      <button className="public-profile-anchor" style={{ width: '100%', justifyContent: 'center' }} onClick={() => setCurrentView('profile')}>
+                        View Public Profile
+                      </button>
+                    </div>
+                  )}
 
                   <div 
                     style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '11px', color: 'var(--text-muted)', cursor: 'pointer', paddingLeft: '10px', marginTop: '6px' }} 
@@ -901,6 +915,17 @@ export default function App() {
             </aside>
 
             <div className="dashboard-main-view">
+              {currentView === 'dashboard' && (
+                <StudentDashboard
+                  user={user}
+                  credentials={credentials}
+                  onSelectCredential={(c) => { setSelectedCred(c); setCurrentView('credential-detail'); }}
+                  onDownload={handleCertificateDownload}
+                  onShare={handleCopyLink}
+                  onNavigateTo={(view) => setCurrentView(view)}
+                />
+              )}
+
               {currentView === 'my-credentials' && (
                 <MyCredentials
                   user={user}
@@ -913,59 +938,16 @@ export default function App() {
                 />
               )}
 
-              {currentView === 'my-badges' && (
-                <div className="wallet-wrapper" style={{ padding: 0 }}>
-                  <h3 style={{ fontFamily: 'Outfit', fontSize: '20px', fontWeight: 800, marginBottom: '16px' }}>My Earned Badges & Credentials</h3>
-                  {credentials.length === 0 ? (
-                    <div className="empty-dashboard">
-                      <div className="empty-icon-box"><i className="fa-solid fa-award"></i></div>
-                      <h3>No Badges Earned Yet</h3>
-                    </div>
-                  ) : (
-                    <div className="wallet-badges-grid">
-                      {credentials.map((cred) => (
-                        <div key={cred.id} className={`premium-badge-card ${cred.type}`}>
-                          <div className="badge-card-icon-frame">
-                            <i className={`fa-solid ${cred.badge_icon || (cred.type === 'certificate' ? 'fa-award' : 'fa-shield-halved')}`}></i>
-                          </div>
-                          <div className="badge-card-main-title">{cred.title}</div>
-                          <div className="badge-card-issuer">Microsoft Student Club PRPCEM</div>
-                          <span className="badge-verified-pill">
-                            <i className="fa-solid fa-circle-check"></i> Verified
-                          </span>
-                          
-                          <div className="badge-skills-tray">
-                            {(cred.skills_list || 'Logic, Problem Solving').split(',').map((skill, index) => (
-                              <span key={index} className="badge-skill-tag">{skill.trim()}</span>
-                            ))}
-                          </div>
-
-                          <div className="badge-card-date-row">
-                            <span>Issued: {cred.issue_date}</span>
-                            <span style={{ fontWeight: 700, fontFamily: 'monospace' }}>{cred.id}</span>
-                          </div>
-
-                          <div className="badge-card-actions-row">
-                            <button className="badge-btn primary-btn" onClick={() => { setSelectedCred(cred); setCurrentView('credential-detail'); }}>
-                              View
-                            </button>
-                            <button className="badge-btn" onClick={() => handleCertificateDownload(cred)}>
-                              Download
-                            </button>
-                            <button className="badge-btn" onClick={() => handleCopyLink(cred)}>
-                              Share
-                            </button>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
+              {currentView === 'profile' && (
+                <PublicProfile 
+                  username={user.email.split('@')[0]} 
+                  onShowNotification={showNotification} 
+                />
               )}
 
-              {currentView === 'collections' && <Collections />}
-
-              {currentView === 'activity' && <ActivityFeed />}
+              {currentView === 'activity' && (
+                <ActivityFeed />
+              )}
 
               {currentView === 'settings' && (
                 <Settings 
@@ -990,7 +972,7 @@ export default function App() {
           <>
             {currentView === 'auth' && (
               <Auth
-                onLoginSuccess={(usr) => { setUser(usr); fetchMyWallet(); }}
+                onLoginSuccess={(usr) => { setUser(usr); fetchMyWallet(); setCurrentView('dashboard'); }}
                 onViewChange={(view) => setCurrentView(view)}
               />
             )}
@@ -1008,8 +990,6 @@ export default function App() {
               />
             )}
 
-            {currentView === 'badge-catalog' && <BadgeCatalog />}
-
             {currentView === 'public-profile' && (
               <div className="wallet-wrapper">
                 <div style={{ display: 'flex', gap: '10px', maxWidth: '400px', margin: '0 auto 20px' }}>
@@ -1021,9 +1001,14 @@ export default function App() {
                     value={profileSearchQuery}
                     onChange={(e) => setProfileSearchQuery(e.target.value)}
                   />
+                  <button className="verify-btn" style={{ whiteSpace: 'nowrap' }} onClick={() => setCurrentView('public-profile')}>Search</button>
                 </div>
                 <PublicProfile username={profileSearchQuery} onShowNotification={showNotification} />
               </div>
+            )}
+
+            {currentView === 'catalog' && (
+              <BadgeCatalog />
             )}
           </>
         )}
@@ -1068,35 +1053,77 @@ export default function App() {
               </div>
             </section>
 
+            {/* Dynamic Platform Metrics Strip */}
+            <section className="metrics-strip">
+              <div className="metric-card">
+                <div className="metric-icon-box">
+                  <i className="fa-solid fa-certificate"></i>
+                </div>
+                <div className="metric-number">{platformMetrics.certificatesIssued || 24}</div>
+                <div className="metric-label">Certificates Issued</div>
+              </div>
+
+              <div className="metric-card">
+                <div className="metric-icon-box">
+                  <i className="fa-solid fa-award"></i>
+                </div>
+                <div className="metric-number">{platformMetrics.badgesIssued || 18}</div>
+                <div className="metric-label">Badges Awarded</div>
+              </div>
+
+              <div className="metric-card">
+                <div className="metric-icon-box">
+                  <i className="fa-solid fa-users"></i>
+                </div>
+                <div className="metric-number">{platformMetrics.studentsCount || 12}</div>
+                <div className="metric-label">Students Registered</div>
+              </div>
+
+              <div className="metric-card">
+                <div className="metric-icon-box">
+                  <i className="fa-solid fa-circle-check"></i>
+                </div>
+                <div className="metric-number">{platformMetrics.verifiedToday || 0}</div>
+                <div className="metric-label">Verified Today</div>
+              </div>
+
+              <div className="metric-card">
+                <div className="metric-icon-box">
+                  <i className="fa-solid fa-download"></i>
+                </div>
+                <div className="metric-number">{platformMetrics.downloadsToday || 0}</div>
+                <div className="metric-label">Downloads Today</div>
+              </div>
+
+              <div className="metric-card">
+                <div className="metric-icon-box">
+                  <i className="fa-brands fa-linkedin-in"></i>
+                </div>
+                <div className="metric-number">{platformMetrics.linkedinShares || 0}</div>
+                <div className="metric-label">LinkedIn Shares</div>
+              </div>
+            </section>
+
             {/* Interactive Tab verification card */}
             <section className="verify-container">
               <div className="verify-card">
                 <div className="verify-card-header">
                   <h2>Verify a Credential</h2>
-                  <p>Choose any option to verify</p>
+                  <p>Choose an option below to instantly verify student achievements</p>
                 </div>
 
-                <div className="verify-tabs">
+                <div className="verify-tabs" style={{ display: 'flex', justifyContent: 'center', gap: '10px', marginBottom: '20px' }}>
                   <button className={`tab-btn ${activeVerifyTab === 'id' ? 'active' : ''}`} onClick={() => { setActiveVerifyTab('id'); setVerifyResult(null); stopCameraScan(); }}>
                     <i className="fa-solid fa-hashtag"></i> Credential ID
                   </button>
-                  <button className={`tab-btn ${activeVerifyTab === 'email' ? 'active' : ''}`} onClick={() => { setActiveVerifyTab('email'); setVerifyResult(null); stopCameraScan(); }}>
-                    <i className="fa-solid fa-envelope"></i> Email
-                  </button>
                   <button className={`tab-btn ${activeVerifyTab === 'name' ? 'active' : ''}`} onClick={() => { setActiveVerifyTab('name'); setVerifyResult(null); stopCameraScan(); }}>
-                    <i className="fa-solid fa-user"></i> Name
-                  </button>
-                  <button className={`tab-btn ${activeVerifyTab === 'badge' ? 'active' : ''}`} onClick={() => { setActiveVerifyTab('badge'); setVerifyResult(null); stopCameraScan(); }}>
-                    <i className="fa-solid fa-award"></i> Badge ID
+                    <i className="fa-solid fa-user"></i> Student Name
                   </button>
                   <button className={`tab-btn ${activeVerifyTab === 'qr' ? 'active' : ''}`} onClick={() => { setActiveVerifyTab('qr'); setVerifyResult(null); startCameraScan(); }}>
-                    <i className="fa-solid fa-qrcode"></i> QR Code
+                    <i className="fa-solid fa-qrcode"></i> QR Scan
                   </button>
                   <button className={`tab-btn ${activeVerifyTab === 'upload' ? 'active' : ''}`} onClick={() => { setActiveVerifyTab('upload'); setVerifyResult(null); stopCameraScan(); }}>
-                    <i className="fa-solid fa-upload"></i> Upload
-                  </button>
-                  <button className={`tab-btn ${activeVerifyTab === 'url' ? 'active' : ''}`} onClick={() => { setActiveVerifyTab('url'); setVerifyResult(null); stopCameraScan(); }}>
-                    <i className="fa-solid fa-link"></i> Verification URL
+                    <i className="fa-solid fa-upload"></i> Upload PNG
                   </button>
                 </div>
 
@@ -1114,55 +1141,7 @@ export default function App() {
                           onChange={(e) => setSearchId(e.target.value)}
                         />
                       </div>
-                      <button type="submit" className="verify-btn">Verify</button>
-                    </form>
-                  )}
-
-                  {activeVerifyTab === 'badge' && (
-                    <form onSubmit={(e) => handleVerify(e, 'badge')} className="search-container-row">
-                      <div className="input-with-icon">
-                        <i className="fa-solid fa-award"></i>
-                        <input
-                          type="text"
-                          className="verify-input"
-                          placeholder="Enter Badge ID (e.g. MSC-BDG-00231)"
-                          value={searchBadgeId}
-                          onChange={(e) => setSearchBadgeId(e.target.value)}
-                        />
-                      </div>
-                      <button type="submit" className="verify-btn">Verify</button>
-                    </form>
-                  )}
-
-                  {activeVerifyTab === 'email' && (
-                    <form onSubmit={(e) => handleVerify(e, 'email')} className="search-container-row">
-                      <div className="input-with-icon">
-                        <i className="fa-solid fa-envelope"></i>
-                        <input
-                          type="email"
-                          className="verify-input"
-                          placeholder="Enter Student's Email Address"
-                          value={searchEmail}
-                          onChange={(e) => setSearchEmail(e.target.value)}
-                        />
-                      </div>
-                      <button type="submit" className="verify-btn">Search</button>
-                    </form>
-                  )}
-
-                  {activeVerifyTab === 'url' && (
-                    <form onSubmit={(e) => handleVerify(e, 'url')} className="search-container-row">
-                      <div className="input-with-icon">
-                        <i className="fa-solid fa-link"></i>
-                        <input
-                          type="text"
-                          className="verify-input"
-                          placeholder="Paste Verification Link"
-                          value={searchUrl}
-                          onChange={(e) => setSearchUrl(e.target.value)}
-                        />
-                      </div>
-                      <button type="submit" className="verify-btn">Verify</button>
+                      <button type="submit" className="verify-btn">Verify Credential</button>
                     </form>
                   )}
 
@@ -1179,8 +1158,8 @@ export default function App() {
                             setSearchName('');
                           }}
                         >
-                          <option value="event">Event Verification</option>
-                          <option value="team">Team Member Verification</option>
+                          <option value="event">Event Completion</option>
+                          <option value="team">Club Team Member</option>
                         </select>
 
                         {nameType === 'event' ? (
@@ -1212,14 +1191,14 @@ export default function App() {
                           <input
                             type="text"
                             className="verify-input"
-                            placeholder="Search your name..."
+                            placeholder="Enter Student's Full Name..."
                             value={searchName}
                             onChange={(e) => handleNameInput(e.target.value)}
                             onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
                             onFocus={() => setShowSuggestions(true)}
                           />
                         </div>
-                        <button type="submit" className="verify-btn">Verify</button>
+                        <button type="submit" className="verify-btn">Verify Credential</button>
                       </form>
 
                       {showSuggestions && nameSuggestions.length > 0 && (
@@ -1277,7 +1256,7 @@ export default function App() {
                 {/* Results Anchor */}
                 <div id="verify-results-anchor"></div>
                 {verifyResult && (
-                  <div className="result-container">
+                  <div className="result-container" style={{ marginTop: '30px' }}>
                     {verifyResult.success ? (
                       verifyResult.records ? (
                         <div>
@@ -1285,7 +1264,7 @@ export default function App() {
                             <div className="success-icon-box"><i className="fa-solid fa-circle-check"></i></div>
                             <div className="result-details">
                               <div className="result-status-title">Records Found</div>
-                              <div className="result-message-text">Multiple achievements issued to: {searchEmail}</div>
+                              <div className="result-message-text">Multiple achievements issued to student name.</div>
                             </div>
                           </div>
                           <div className="multiple-records-container">
@@ -1304,19 +1283,138 @@ export default function App() {
                           </div>
                         </div>
                       ) : (
-                        <div className="success-result-card" style={{ cursor: 'pointer' }} onClick={() => { setSelectedCred(verifyResult.record); setCurrentView('credential-detail'); }}>
-                          <div className="success-icon-box"><i className="fa-solid fa-circle-check"></i></div>
-                          <div className="result-details">
-                            <div className="result-status-title">Authentic Achievement Verified</div>
-                            <div className="result-message-text">✓ {verifyResult.record.recipient_name} is verified for {verifyResult.record.title}.</div>
-                            <div className="result-info-grid">
-                              <div className="result-info-item"><span className="info-label">Student</span><span className="info-val">{verifyResult.record.recipient_name}</span></div>
-                              <div className="result-info-item"><span className="info-label">Credential ID</span><span className="info-val" style={{ fontFamily: 'monospace' }}>{verifyResult.record.id}</span></div>
-                              <div className="result-info-item"><span className="info-label">Type</span><span className="info-val" style={{ textTransform: 'capitalize' }}>{verifyResult.record.type}</span></div>
-                              <div className="result-info-item"><span className="info-label">Issue Date</span><span className="info-val">{verifyResult.record.issue_date}</span></div>
+                        /* Comprehensive Verified Credential Display matching exact requested layout */
+                        <div 
+                          className="admin-card" 
+                          style={{ 
+                            background: 'white', 
+                            border: '1px solid #e2e8f0', 
+                            borderRadius: '16px', 
+                            padding: '30px', 
+                            textAlign: 'left',
+                            boxShadow: '0 4px 12px rgba(0,0,0,0.03)'
+                          }}
+                        >
+                          {/* Success Badge */}
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', background: '#ecfdf5', color: '#065f46', padding: '12px 16px', borderRadius: '8px', marginBottom: '24px', borderLeft: '4px solid #10b981' }}>
+                            <i className="fa-solid fa-circle-check" style={{ fontSize: '18px', color: '#10b981' }}></i>
+                            <div>
+                              <strong style={{ fontSize: '14px', display: 'block' }}>Authentic Record Verified</strong>
+                              <span style={{ fontSize: '12px', opacity: 0.9 }}>This credential matches the official Microsoft Student Club PRPCEM secure registry.</span>
                             </div>
-                            <div style={{ marginTop: '10px', fontSize: '11px', color: '#166534', borderTop: '1px solid rgba(22,163,74,0.1)', paddingTop: '8px' }}>
-                              Click card to open award presentation view.
+                          </div>
+
+                          {/* Grid with preview and details */}
+                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '30px' }}>
+                            
+                            {/* Left Panel: Credential Preview Card Frame */}
+                            <div 
+                              className="cert-mockup" 
+                              style={{ 
+                                height: 'auto', 
+                                margin: 0, 
+                                background: '#fafbfc', 
+                                border: '3px double #e2e8f0', 
+                                padding: '24px 16px',
+                                display: 'flex',
+                                flexDirection: 'column',
+                                justifyContent: 'space-between',
+                                gap: '16px',
+                                position: 'relative'
+                              }}
+                            >
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <img src="/assets/MSC_logo.png" style={{ height: '24px' }} alt="MSC Logo" />
+                                <span style={{ fontSize: '9px', fontWeight: 800, background: '#eff6ff', color: '#2563eb', padding: '2px 8px', borderRadius: '4px', textTransform: 'uppercase' }}>
+                                  {verifyResult.record.type}
+                                </span>
+                              </div>
+
+                              <div style={{ textAlign: 'center', margin: '10px 0' }}>
+                                <h4 style={{ fontSize: '11px', textTransform: 'uppercase', color: '#64748b', letterSpacing: '1px', margin: '0 0 6px 0' }}>Verified Achievement</h4>
+                                <h3 style={{ fontSize: '18px', fontWeight: 900, color: '#0f172a', margin: '0 0 8px 0' }}>{verifyResult.record.recipient_name}</h3>
+                                <p style={{ fontSize: '12px', color: '#475569', margin: '0 auto 12px', maxWidth: '240px', lineHeight: 1.4 }}>
+                                  Successfully completed the certified club program
+                                </p>
+                                <h3 style={{ fontSize: '15px', fontWeight: 800, color: '#2563eb', margin: 0 }}>{verifyResult.record.title}</h3>
+                              </div>
+
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid #f1f5f9', paddingTop: '10px', fontSize: '10px', color: '#64748b' }}>
+                                <span>ID: <strong style={{ fontFamily: 'monospace' }}>{verifyResult.record.id}</strong></span>
+                                <span>MSC Security</span>
+                              </div>
+                            </div>
+
+                            {/* Right Panel: Requested Fields, QR Code, Actions */}
+                            <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+                              
+                              {/* Metadata table */}
+                              <div className="detail-meta-table" style={{ margin: 0, maxWidth: '100%' }}>
+                                <div className="detail-meta-row">
+                                  <span className="label">Student Name</span>
+                                  <span className="val" style={{ fontWeight: 800, color: '#0f172a' }}>{verifyResult.record.recipient_name}</span>
+                                </div>
+                                <div className="detail-meta-row">
+                                  <span className="label">Credential Title</span>
+                                  <span className="val" style={{ fontWeight: 800, color: '#2563eb' }}>{verifyResult.record.title}</span>
+                                </div>
+                                <div className="detail-meta-row">
+                                  <span className="label">Credential Type</span>
+                                  <span className="val" style={{ textTransform: 'capitalize' }}>{verifyResult.record.type}</span>
+                                </div>
+                                <div className="detail-meta-row">
+                                  <span className="label">Credential ID</span>
+                                  <span className="val" style={{ fontFamily: 'monospace', fontWeight: 700 }}>{verifyResult.record.id}</span>
+                                </div>
+                                <div className="detail-meta-row">
+                                  <span className="label">Issue Date</span>
+                                  <span className="val">{verifyResult.record.issue_date}</span>
+                                </div>
+                                <div className="detail-meta-row">
+                                  <span className="label">Issued By</span>
+                                  <span className="val">Microsoft Student Club PRPCEM</span>
+                                </div>
+                                <div className="detail-meta-row">
+                                  <span className="label">Verification Status</span>
+                                  <span className="val" style={{ color: '#10b981', fontWeight: 800 }}>
+                                    <i className="fa-solid fa-circle-check"></i> Active / Authentic
+                                  </span>
+                                </div>
+                              </div>
+
+                              {/* Vector QR Code Section & Action Row */}
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '20px', marginTop: '20px', borderTop: '1px solid #f1f5f9', paddingTop: '20px' }}>
+                                
+                                {/* Real Dynamic QR Code */}
+                                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
+                                  <div style={{ padding: '6px', background: 'white', borderRadius: '6px', border: '1px solid #cbd5e1', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+                                    <img 
+                                      src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(`${window.location.origin}?verifyId=${verifyResult.record.id}`)}`}
+                                      alt="Verification QR Code"
+                                      style={{ width: '72px', height: '72px', display: 'block' }}
+                                    />
+                                  </div>
+                                </div>
+
+                                <div style={{ flexGrow: 1, display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                  <button 
+                                    className="badge-btn primary-btn" 
+                                    style={{ width: '100%', padding: '10px 0', fontSize: '12px' }}
+                                    onClick={() => handleCertificateDownload(verifyResult.record)}
+                                  >
+                                    <i className="fa-solid fa-download"></i> Download Official Certificate
+                                  </button>
+                                  <button 
+                                    className="badge-btn" 
+                                    style={{ width: '100%', padding: '10px 0', fontSize: '12px', background: '#f8fafc', border: '1px solid #cbd5e1', color: 'var(--text-main)' }}
+                                    onClick={() => handleCopyLink(verifyResult.record)}
+                                  >
+                                    <i className="fa-solid fa-share-nodes"></i> Share Verification Link
+                                  </button>
+                                </div>
+
+                              </div>
+
                             </div>
                           </div>
                         </div>
@@ -1326,7 +1424,7 @@ export default function App() {
                         <div className="error-icon-box"><i className="fa-solid fa-circle-exclamation"></i></div>
                         <div>
                           <div className="error-status-title">Verification Refused</div>
-                          <div className="error-message-text">❌ Record not found. Please contact admin.</div>
+                          <div className="error-message-text">❌ Record not found in our secure registry. Ensure the ID is spelled correctly.</div>
                         </div>
                       </div>
                     )}
@@ -1335,57 +1433,124 @@ export default function App() {
               </div>
             </section>
 
-            {/* Metrics banner */}
-            <section className="metrics-strip">
-              <div className="metric-card">
-                <div className="metric-icon-box"><i className="fa-solid fa-certificate"></i></div>
-                <div className="metric-number">{metrics.certificatesIssued.toLocaleString()}+</div>
-                <div className="metric-label">Certificates Issued</div>
+            {/* How It Works Section */}
+            <section className="wallet-wrapper" style={{ margin: '40px auto 10px' }}>
+              <div style={{ textAlign: 'center', marginBottom: '32px' }}>
+                <h2 style={{ fontSize: '24px', fontWeight: 900, color: 'var(--text-main)' }}>How It Works</h2>
+                <p style={{ fontSize: '13px', color: 'var(--text-muted)' }}>The seamless flow from learning to verified industrial credentials</p>
               </div>
-              <div className="metric-card">
-                <div className="metric-icon-box"><i className="fa-solid fa-shield-halved"></i></div>
-                <div className="metric-number">{metrics.badgesIssued.toLocaleString()}+</div>
-                <div className="metric-label">Badges Issued</div>
-              </div>
-              <div className="metric-card">
-                <div className="metric-icon-box"><i className="fa-solid fa-user-graduate"></i></div>
-                <div className="metric-number">{metrics.studentsCount.toLocaleString()}+</div>
-                <div className="metric-label">Students</div>
-              </div>
-              <div className="metric-card">
-                <div className="metric-icon-box"><i className="fa-solid fa-circle-check"></i></div>
-                <div className="metric-number">{metrics.verifiedToday}+</div>
-                <div className="metric-label">Verified Today</div>
-              </div>
-              <div className="metric-card">
-                <div className="metric-icon-box"><i className="fa-solid fa-circle-arrow-down"></i></div>
-                <div className="metric-number">{metrics.downloadsToday}+</div>
-                <div className="metric-label">Downloads Today</div>
-              </div>
-              <div className="metric-card">
-                <div className="metric-icon-box"><i className="fa-brands fa-linkedin-in"></i></div>
-                <div className="metric-number">{metrics.linkedinShares}+</div>
-                <div className="metric-label">LinkedIn Shares</div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '24px' }}>
+                
+                {/* Step 1 */}
+                <div className="admin-card" style={{ background: 'white', padding: '24px', textAlign: 'center' }}>
+                  <div style={{ width: '48px', height: '48px', borderRadius: '50%', background: '#eff6ff', color: '#2563eb', display: 'flex', justifyContent: 'center', alignItems: 'center', fontSize: '20px', margin: '0 auto 16px', fontWeight: 800 }}>1</div>
+                  <h4 style={{ fontSize: '14px', fontWeight: 800, color: 'var(--text-main)', margin: '0 0 8px 0' }}>Issue Achievement</h4>
+                  <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: 0, lineHeight: 1.5 }}>Microsoft Student Club PRPCEM administrators record achievement details and award verified criteria.</p>
+                </div>
+
+                {/* Step 2 */}
+                <div className="admin-card" style={{ background: 'white', padding: '24px', textAlign: 'center' }}>
+                  <div style={{ width: '48px', height: '48px', borderRadius: '50%', background: '#faf5ff', color: '#7c3aed', display: 'flex', justifyContent: 'center', alignItems: 'center', fontSize: '20px', margin: '0 auto 16px', fontWeight: 800 }}>2</div>
+                  <h4 style={{ fontSize: '14px', fontWeight: 800, color: 'var(--text-main)', margin: '0 0 8px 0' }}>Email Notification</h4>
+                  <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: 0, lineHeight: 1.5 }}>Our engine immediately dispatches a simulated security email containing direct viewing and download links.</p>
+                </div>
+
+                {/* Step 3 */}
+                <div className="admin-card" style={{ background: 'white', padding: '24px', textAlign: 'center' }}>
+                  <div style={{ width: '48px', height: '48px', borderRadius: '50%', background: '#ecfdf5', color: '#10b981', display: 'flex', justifyContent: 'center', alignItems: 'center', fontSize: '20px', margin: '0 auto 16px', fontWeight: 800 }}>3</div>
+                  <h4 style={{ fontSize: '14px', fontWeight: 800, color: 'var(--text-main)', margin: '0 0 8px 0' }}>Instant Verification</h4>
+                  <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: 0, lineHeight: 1.5 }}>Employers or peer reviewers enter the unique Credential ID or name to pull the active live verification record.</p>
+                </div>
+
+                {/* Step 4 */}
+                <div className="admin-card" style={{ background: 'white', padding: '24px', textAlign: 'center' }}>
+                  <div style={{ width: '48px', height: '48px', borderRadius: '50%', background: '#fff7ed', color: '#ea580c', display: 'flex', justifyContent: 'center', alignItems: 'center', fontSize: '20px', margin: '0 auto 16px', fontWeight: 800 }}>4</div>
+                  <h4 style={{ fontSize: '14px', fontWeight: 800, color: 'var(--text-main)', margin: '0 0 8px 0' }}>Social Showcase</h4>
+                  <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: 0, lineHeight: 1.5 }}>Students add their authentic credentials to their LinkedIn profile or copy a direct, shareable public link.</p>
+                </div>
+
               </div>
             </section>
 
-            {/* Recent Credentials grid */}
-            <section className="recent-section">
-              <div className="section-header">
-                <h2>Recently Issued Credentials</h2>
-              </div>
-              <div className="recent-grid">
-                {recentCredentials.map((c) => (
-                  <div key={c.id} className="recent-card" style={{ cursor: 'pointer' }} onClick={() => { setSelectedCred(c); setCurrentView('credential-detail'); }}>
-                    <span className={`badge-tag ${c.type}`}>{c.type}</span>
-                    <div className="recent-title">{c.title}</div>
-                    <div className="recent-recipient">{c.recipient_name}</div>
-                    <div className="recent-footer">
-                      <i className={`fa-solid ${c.badge_icon || 'fa-award'}`}></i>
-                      <span>{c.issue_date}</span>
+            {/* Live Verification Timeline Feed */}
+            {recentVerified.length > 0 && (
+              <section className="recent-section">
+                <div className="section-header">
+                  <h2>Recently Verified Achievements</h2>
+                  <span style={{ fontSize: '12px', background: 'var(--primary-light)', color: 'var(--primary)', padding: '4px 10px', borderRadius: '12px', fontWeight: 800 }}>
+                    <i className="fa-solid fa-circle-dot fa-fade" style={{ color: '#10b981', marginRight: '6px' }}></i> LIVE REGISTRY FEED
+                  </span>
+                </div>
+                <div className="recent-grid">
+                  {recentVerified.slice(0, 5).map((cred) => (
+                    <div 
+                      key={cred.id} 
+                      className="recent-card"
+                      style={{ cursor: 'pointer' }}
+                      onClick={() => {
+                        setSearchId(cred.id);
+                        setActiveVerifyTab('id');
+                        // Scroll up to verification card
+                        document.querySelector('.verify-container')?.scrollIntoView({ behavior: 'smooth' });
+                        handleVerify(null, 'id', cred.id);
+                        showNotification(`Verifying ${cred.recipient_name}'s credential...`);
+                      }}
+                    >
+                      <span className={`badge-tag ${cred.type}`}>
+                        {cred.type}
+                      </span>
+                      <h4 className="recent-title">{cred.title}</h4>
+                      <p className="recent-recipient">to {cred.recipient_name}</p>
+                      <div className="recent-footer">
+                        <i className="fa-solid fa-circle-check" style={{ color: '#10b981' }}></i>
+                        <span>ID: {cred.id}</span>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  ))}
+                </div>
+              </section>
+            )}
+
+            {/* FAQ Section */}
+            <section className="wallet-wrapper" style={{ margin: '50px auto 20px', maxWidth: '720px' }}>
+              <div style={{ textAlign: 'center', marginBottom: '32px' }}>
+                <h2 style={{ fontSize: '24px', fontWeight: 900, color: 'var(--text-main)' }}>Frequently Asked Questions</h2>
+                <p style={{ fontSize: '13px', color: 'var(--text-muted)' }}>Everything you need to know about our credential architecture</p>
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                {faqs.map((faq, index) => {
+                  const isOpen = faqOpenIndex === index;
+                  return (
+                    <div 
+                      key={index} 
+                      className="admin-card" 
+                      style={{ 
+                        background: 'white', 
+                        padding: '16px 24px', 
+                        cursor: 'pointer', 
+                        textAlign: 'left',
+                        border: '1px solid #e2e8f0',
+                        borderRadius: '12px'
+                      }}
+                      onClick={() => setFaqOpenIndex(isOpen ? null : index)}
+                    >
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <h4 style={{ fontSize: '13.5px', fontWeight: 800, color: 'var(--text-main)', margin: 0 }}>
+                          {faq.q}
+                        </h4>
+                        <i className={`fa-solid ${isOpen ? 'fa-minus' : 'fa-plus'}`} style={{ fontSize: '12px', color: 'var(--text-muted)' }}></i>
+                      </div>
+                      
+                      {isOpen && (
+                        <p style={{ fontSize: '12.5px', color: 'var(--text-muted)', margin: '12px 0 0', lineHeight: 1.5, borderTop: '1px solid #f1f5f9', paddingTop: '12px' }}>
+                          {faq.a}
+                        </p>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             </section>
           </>
@@ -1407,7 +1572,7 @@ export default function App() {
             <ul className="footer-links">
               <li><a href="#" onClick={() => { setCurrentView('home'); setVerifyResult(null); }}>Verify Credential</a></li>
               <li><a href="#" onClick={() => { setCurrentView('home'); setActiveVerifyTab('name'); }}>Explore Credentials</a></li>
-              <li><a href="#" onClick={() => { if(user) { setCurrentView('my-credentials'); } else { setCurrentView('auth'); } }}>Public Profiles</a></li>
+              <li><a href="#" onClick={() => { if(user) { setCurrentView('dashboard'); } else { setCurrentView('auth'); } }}>Public Profiles</a></li>
             </ul>
           </div>
           
@@ -1488,57 +1653,8 @@ export default function App() {
         </div>
       )}
 
-      {/* DEVELOPER SIMULATED EMAIL INBOX (Sandbox drawer widget) */}
-      <button 
-        className="inbox-toggle-btn"
-        title="Simulated Mailbox"
-        onClick={() => { setInboxOpen(!inboxOpen); fetchSimulatedEmails(); }}
-      >
-        <i className="fa-solid fa-envelope"></i>
-        {simulatedEmails.length > 0 && (
-          <span className="inbox-badge-count">{simulatedEmails.length}</span>
-        )}
-      </button>
-
-      {inboxOpen && (
-        <div className="inbox-drawer">
-          <div className="inbox-header">
-            <h3><i className="fa-solid fa-envelope-open-text"></i> Simulated Student Mailbox</h3>
-            <button 
-              style={{ background: 'none', border: 'none', color: 'white', cursor: 'pointer', fontSize: '16px' }}
-              onClick={() => setInboxOpen(false)}
-            >
-              <i className="fa-solid fa-xmark"></i>
-            </button>
-          </div>
-          <div className="inbox-body">
-            {simulatedEmails.length === 0 ? (
-              <div style={{ textAlign: 'center', padding: '40px 20px', color: 'var(--text-muted)', fontSize: '12px' }}>
-                <i className="fa-solid fa-inbox" style={{ fontSize: '24px', marginBottom: '8px', display: 'block' }}></i>
-                No emails received. Trigger a quiz publish to receive credentials emails.
-              </div>
-            ) : (
-              simulatedEmails.map((email) => (
-                <div key={email.id} className="email-item">
-                  <div className="email-item-header">
-                    <span>TO: {email.recipient_email}</span>
-                    <span>{new Date(email.sent_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-                  </div>
-                  <div className="email-item-subject">{email.subject}</div>
-                  <div className="email-body-preview">{email.body}</div>
-                  <button 
-                    className="email-link-btn"
-                    onClick={() => handleEmailViewBadge(email.body)}
-                  >
-                    Click: [ View Badge ] Link
-                  </button>
-                </div>
-              ))
-            )}
-          </div>
-        </div>
-      )}
-
+      {/* Hidden QR Reader for uploaded certificate scanning */}
+      <div id="hidden-qr-reader" style={{ display: 'none' }}></div>
       {/* Offscreen Canvas Certificate Exporter frame */}
       <canvas ref={canvasRef} width="1600" height="1100" className="canvas-offscreen"></canvas>
     </div>

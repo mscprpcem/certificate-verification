@@ -28,6 +28,7 @@ export default function BulkIssueForm({ onShowNotification, onRefresh }) {
         onShowNotification(`Error: ${data.error}`);
       }
     } catch (err) {
+      console.error(err);
       onShowNotification("Failed to connect to server.");
     } finally {
       setSubmitting(false);

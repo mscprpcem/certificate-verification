@@ -37,7 +37,8 @@ export default function ActivityFeed() {
       if (diffDays < 7) return `${diffDays} Days Ago`;
       if (diffDays < 14) return "Last Week";
       return `${Math.floor(diffDays / 7)} Weeks Ago`;
-    } catch (e) {
+    } catch (err) {
+      console.error(err);
       return isoString;
     }
   };

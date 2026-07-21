@@ -1,0 +1,10 @@
+{
+  "name": "MSC PRPCEM Certificate Verification",
+  "description": "Microsoft Student Club Credential Engine & Wallet Portal for PRPCEM",
+  "requestFramePermissions": [
+    "camera"
+  ],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

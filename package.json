@@ -2,9 +2,13 @@
   "name": "msc-credential-platform",
   "version": "1.0.0",
   "description": "Microsoft Student Club Credential Engine & Wallet Portal",
+  "workspaces": [
+    "frontend",
+    "backend"
+  ],
   "scripts": {
-    "backend": "cd backend && npm start",
-    "frontend": "cd frontend && npm run dev",
-    "dev": "npx -y concurrently \"npm run backend\" \"npm run frontend\""
+    "dev": "npm run build --prefix frontend && node backend/server.js",
+    "build": "npm run build --prefix frontend",
+    "lint": "npm run lint --prefix frontend"
   }
 }
