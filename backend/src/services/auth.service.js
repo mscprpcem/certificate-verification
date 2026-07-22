@@ -5,21 +5,33 @@ const profileRepository = require("../repositories/profile.repository");
 const authConfig = require("../config/auth");
 
 class AuthService {
-  async register(name, email, password) {
-    const existingUser = await userRepository.findByEmail(email);
+  async register(name, email, password, username = null) {
+    const existingEmail = await userRepository.findByEmail(email);
+    if (existingEmail && existingEmail.password_hash) {
+      throw new Error("Email is already registered.");
+    }
+
+    const finalUsername = (username || email.split('@')[0]).toLowerCase().trim();
+
+    if (!/^[a-zA-Z0-9_-]{3,20}$/.test(finalUsername)) {
+      throw new Error("Username must be 3-20 characters long and contain only letters, numbers, underscores, or hyphens.");
+    }
+
+    const existingUsername = await userRepository.findByUsername(finalUsername);
+    if (existingUsername && existingUsername.email.toLowerCase() !== email.toLowerCase().trim()) {
+      throw new Error("Username is already taken. Please choose another username.");
+    }
+
     const hashedPassword = await bcrypt.hash(password, authConfig.bcryptSaltRounds);
     let userId;
 
-    if (existingUser) {
-      if (!existingUser.password_hash) {
-        await userRepository.updateLazyProfile(existingUser.id, name, hashedPassword);
-        userId = existingUser.id;
-      } else {
-        throw new Error("Email is already registered.");
-      }
+    if (existingEmail && !existingEmail.password_hash) {
+      await userRepository.updateLazyProfile(existingEmail.id, name, hashedPassword);
+      userId = existingEmail.id;
     } else {
       userId = await userRepository.create({
         name,
+        username: finalUsername,
         email,
         password_hash: hashedPassword,
         role: "student",

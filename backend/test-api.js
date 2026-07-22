@@ -2,7 +2,7 @@
  * Comprehensive Backend API Test Suite
  * Tests all endpoints for the MSC Credential Platform
  */
-const BASE = 'http://localhost:5000';
+const BASE = process.env.BASE_URL || 'http://localhost:3000';
 let passed = 0;
 let failed = 0;
 const failures = [];
@@ -201,6 +201,39 @@ async function run() {
     });
     assert(!res.ok, 'Should fail for existing email');
     assert(data.error.includes('already registered'), 'Should mention already registered');
+  });
+
+  await test('Check existing username returns available: false', async () => {
+    const { res, data } = await fetchJSON(`${BASE}/api/auth/check-username?username=amityadav`);
+    assert(res.ok, 'Endpoint should respond 200');
+    assert(data.available === false, 'Username amityadav should be taken');
+    assert(data.error.includes('already taken'), 'Should mention already taken');
+  });
+
+  await test('Check unused username returns available: true', async () => {
+    const { res, data } = await fetchJSON(`${BASE}/api/auth/check-username?username=brandnewuser123`);
+    assert(res.ok, 'Endpoint should respond 200');
+    assert(data.available === true, 'Username brandnewuser123 should be available');
+  });
+
+  await test('Register with taken username returns error', async () => {
+    const { res, data } = await fetchJSON(`${BASE}/api/auth/register`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: 'Test User', username: 'amityadav', email: 'newtest@mscprpcem.tech', password: 'password123' })
+    });
+    assert(!res.ok, 'Should fail with taken username');
+    assert(data.error.includes('already taken'), 'Should mention username taken');
+  });
+
+  await test('Register with available username succeeds and allot username', async () => {
+    const { res, data } = await fetchJSON(`${BASE}/api/auth/register`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: 'Brand New', username: 'brandnewuser123', email: 'brandnew@mscprpcem.tech', password: 'password123' })
+    });
+    assert(res.ok, 'Should succeed with new username');
+    assert(data.user.username === 'brandnewuser123', 'Should allot brandnewuser123 username to user');
   });
 
   // ── 6. LAZY LOGIN ──

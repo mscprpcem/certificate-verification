@@ -85,6 +85,7 @@ async function initDatabase() {
     CREATE TABLE IF NOT EXISTS users (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       name TEXT NOT NULL,
+      username TEXT UNIQUE,
       email TEXT UNIQUE NOT NULL,
       password_hash TEXT,
       role TEXT DEFAULT 'student',
@@ -99,6 +100,13 @@ async function initDatabase() {
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )
   `);
+
+  // Migrate existing table if username column is missing
+  try {
+    await dbRun("ALTER TABLE users ADD COLUMN username TEXT");
+  } catch (err) {
+    // Column already exists
+  }
 
   // 2. Create Credentials Table
   await dbRun(`
@@ -245,9 +253,9 @@ async function initDatabase() {
 
     // Admin account
     await dbRun(
-      `INSERT INTO users (name, email, password_hash, role, bio, headline, xp, level) 
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-      ["MSC Club Admin", "admin@mscprpcem.tech", adminHash, "admin", "MSC PRPCEM Administrator", "Chapter Advisor", 5000, "Ambassador"]
+      `INSERT INTO users (name, username, email, password_hash, role, bio, headline, xp, level) 
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      ["MSC Club Admin", "admin", "admin@mscprpcem.tech", adminHash, "admin", "MSC PRPCEM Administrator", "Chapter Advisor", 5000, "Ambassador"]
     );
 
     // Student account (Amit Kumar Yadav)
@@ -259,10 +267,11 @@ async function initDatabase() {
     });
     
     await dbRun(
-      `INSERT INTO users (name, email, password_hash, role, bio, headline, profile_photo, linkedin_url, github_url, skills, xp, level) 
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO users (name, username, email, password_hash, role, bio, headline, profile_photo, linkedin_url, github_url, skills, xp, level) 
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         "Amit Kumar Yadav", 
+        "amityadav",
         "student@mscprpcem.tech", 
         studentHash, 
         "student", 
@@ -278,6 +287,15 @@ async function initDatabase() {
     );
 
     console.log("Seeding users completed successfully.");
+  }
+
+  // Populate username for any existing users without a username
+  try {
+    await dbRun("UPDATE users SET username = LOWER(REPLACE(name, ' ', '')) WHERE username IS NULL OR username = ''");
+    await dbRun("UPDATE users SET username = 'amityadav' WHERE LOWER(email) = 'student@mscprpcem.tech'");
+    await dbRun("UPDATE users SET username = 'admin' WHERE LOWER(email) = 'admin@mscprpcem.tech'");
+  } catch (err) {
+    // Ignore migration updates
   }
 
   // 6. Seed Credentials from Sheet APIs

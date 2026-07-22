@@ -9,12 +9,18 @@ class UserRepository {
     return await dbGet("SELECT * FROM users WHERE LOWER(email) = ?", [email.toLowerCase().trim()]);
   }
 
+  async findByUsername(username) {
+    if (!username) return null;
+    return await dbGet("SELECT * FROM users WHERE LOWER(username) = ?", [username.toLowerCase().trim()]);
+  }
+
   async create(user) {
     const result = await dbRun(
-      `INSERT INTO users (name, email, password_hash, role, bio, headline, profile_photo, linkedin_url, github_url, skills)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO users (name, username, email, password_hash, role, bio, headline, profile_photo, linkedin_url, github_url, skills)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         user.name,
+        user.username ? user.username.toLowerCase().trim() : user.email.split('@')[0].toLowerCase().trim(),
         user.email.toLowerCase().trim(),
         user.password_hash,
         user.role,

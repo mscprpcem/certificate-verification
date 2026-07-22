@@ -1,8 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 
-export default function Auth({ onLoginSuccess, onViewChange }) {
-  const [activeTab, setActiveTab] = useState('login'); // 'login' or 'register'
+export default function Auth({ initialTab = 'login', onLoginSuccess, onViewChange, onTabChange }) {
+  const [activeTab, setActiveTab] = useState(initialTab); // 'login' or 'register'
   const [name, setName] = useState('');
+  const [username, setUsername] = useState('');
+  const [usernameStatus, setUsernameStatus] = useState({ checking: false, available: null, message: '' });
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -10,10 +12,56 @@ export default function Auth({ onLoginSuccess, onViewChange }) {
   const [errorMessage, setErrorMessage] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
 
-  const fillCredentials = (type) => {
-    setActiveTab('login');
+  useEffect(() => {
+    if (initialTab && (initialTab === 'login' || initialTab === 'register')) {
+      setActiveTab(initialTab);
+    }
+  }, [initialTab]);
+
+  const handleTabSwitch = (tab) => {
+    setActiveTab(tab);
     setErrorMessage('');
     setSuccessMessage('');
+    if (onTabChange) {
+      onTabChange(tab);
+    }
+  };
+
+  const checkUsernameAvailability = async (val) => {
+    if (!val || !val.trim()) {
+      setUsernameStatus({ checking: false, available: null, message: '' });
+      return;
+    }
+    const cleanVal = val.toLowerCase().trim();
+    if (!/^[a-zA-Z0-9_-]{3,20}$/.test(cleanVal)) {
+      setUsernameStatus({
+        checking: false,
+        available: false,
+        message: 'Username must be 3-20 characters long (letters, numbers, _ or -).'
+      });
+      return;
+    }
+
+    setUsernameStatus({ checking: true, available: null, message: 'Checking availability...' });
+    try {
+      const res = await fetch(`/api/auth/check-username?username=${encodeURIComponent(cleanVal)}`);
+      const data = await res.json();
+      if (res.ok && data.available) {
+        setUsernameStatus({ checking: false, available: true, message: '✓ Username is available!' });
+      } else {
+        setUsernameStatus({
+          checking: false,
+          available: false,
+          message: data.error || 'Username is already taken. Please choose another username.'
+        });
+      }
+    } catch (err) {
+      setUsernameStatus({ checking: false, available: null, message: '' });
+    }
+  };
+
+  const fillCredentials = (type) => {
+    handleTabSwitch('login');
     if (type === 'admin') {
       setEmail('admin@mscprpcem.tech');
       setPassword('admin123');
@@ -27,10 +75,22 @@ export default function Auth({ onLoginSuccess, onViewChange }) {
     e.preventDefault();
     setErrorMessage('');
     setSuccessMessage('');
+
+    if (activeTab === 'register') {
+      if (!username || !username.trim()) {
+        setErrorMessage('Please enter a username.');
+        return;
+      }
+      if (usernameStatus.available === false) {
+        setErrorMessage(usernameStatus.message || 'Username is already taken. Please choose another username.');
+        return;
+      }
+    }
+
     setLoading(true);
 
     const endpoint = activeTab === 'login' ? '/api/auth/login' : '/api/auth/register';
-    const payload = activeTab === 'login' ? { email, password } : { name, email, password };
+    const payload = activeTab === 'login' ? { email, password } : { name, username, email, password };
 
     try {
       const res = await fetch(endpoint, {
@@ -99,7 +159,7 @@ export default function Auth({ onLoginSuccess, onViewChange }) {
               boxShadow: activeTab === 'login' ? '0 2px 6px rgba(0,0,0,0.06)' : 'none',
               transition: 'all 0.2s ease'
             }}
-            onClick={() => { setActiveTab('login'); setErrorMessage(''); setSuccessMessage(''); }}
+            onClick={() => handleTabSwitch('login')}
           >
             <i className="fa-solid fa-right-to-bracket" style={{ marginRight: '6px' }}></i> Sign In
           </button>
@@ -119,7 +179,7 @@ export default function Auth({ onLoginSuccess, onViewChange }) {
               boxShadow: activeTab === 'register' ? '0 2px 6px rgba(0,0,0,0.06)' : 'none',
               transition: 'all 0.2s ease'
             }}
-            onClick={() => { setActiveTab('register'); setErrorMessage(''); setSuccessMessage(''); }}
+            onClick={() => handleTabSwitch('register')}
           >
             <i className="fa-solid fa-user-plus" style={{ marginRight: '6px' }}></i> Register
           </button>
@@ -190,23 +250,69 @@ export default function Auth({ onLoginSuccess, onViewChange }) {
 
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
           {activeTab === 'register' && (
-            <div>
-              <label style={{ display: 'block', fontSize: '12px', fontWeight: 800, color: 'var(--text-main)', marginBottom: '6px' }}>
-                Full Name
-              </label>
-              <div style={{ position: 'relative' }}>
-                <i className="fa-regular fa-user" style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', fontSize: '14px' }}></i>
-                <input
-                  type="text"
-                  className="form-input"
-                  style={{ paddingLeft: '40px', borderRadius: '10px' }}
-                  placeholder="e.g. Amit Kumar Yadav"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  required
-                />
+            <>
+              <div>
+                <label style={{ display: 'block', fontSize: '12px', fontWeight: 800, color: 'var(--text-main)', marginBottom: '6px' }}>
+                  Full Name
+                </label>
+                <div style={{ position: 'relative' }}>
+                  <i className="fa-regular fa-user" style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', fontSize: '14px' }}></i>
+                  <input
+                    type="text"
+                    className="form-input"
+                    style={{ paddingLeft: '40px', borderRadius: '10px' }}
+                    placeholder="e.g. Amit Kumar Yadav"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    required
+                  />
+                </div>
               </div>
-            </div>
+
+              <div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                  <label style={{ fontSize: '12px', fontWeight: 800, color: 'var(--text-main)' }}>
+                    Choose Username <span style={{ color: '#ef4444' }}>*</span>
+                  </label>
+                  <span style={{ fontSize: '11px', color: '#64748b', fontWeight: 600 }}>e.g. @amityadav</span>
+                </div>
+                <div style={{ position: 'relative' }}>
+                  <i className="fa-solid fa-at" style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', fontSize: '14px' }}></i>
+                  <input
+                    type="text"
+                    className="form-input"
+                    style={{
+                      paddingLeft: '40px',
+                      paddingRight: '40px',
+                      borderRadius: '10px',
+                      borderColor: usernameStatus.available === false ? '#ef4444' : usernameStatus.available === true ? '#10b981' : undefined
+                    }}
+                    placeholder="e.g. amityadav"
+                    value={username}
+                    onChange={(e) => {
+                      const val = e.target.value.toLowerCase().replace(/[^a-z0-9_-]/g, '');
+                      setUsername(val);
+                      checkUsernameAvailability(val);
+                    }}
+                    required
+                  />
+                  {usernameStatus.checking && (
+                    <i className="fa-solid fa-spinner fa-spin" style={{ position: 'absolute', right: '14px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8', fontSize: '14px' }}></i>
+                  )}
+                  {!usernameStatus.checking && usernameStatus.available === true && (
+                    <i className="fa-solid fa-circle-check" style={{ position: 'absolute', right: '14px', top: '50%', transform: 'translateY(-50%)', color: '#10b981', fontSize: '14px' }}></i>
+                  )}
+                  {!usernameStatus.checking && usernameStatus.available === false && (
+                    <i className="fa-solid fa-circle-xmark" style={{ position: 'absolute', right: '14px', top: '50%', transform: 'translateY(-50%)', color: '#ef4444', fontSize: '14px' }}></i>
+                  )}
+                </div>
+                {usernameStatus.message && (
+                  <p style={{ fontSize: '11px', marginTop: '5px', marginBottom: 0, fontWeight: 700, color: usernameStatus.available === true ? '#059669' : '#dc2626' }}>
+                    {usernameStatus.message}
+                  </p>
+                )}
+              </div>
+            </>
           )}
 
           <div>
