@@ -3,6 +3,7 @@ const router = express.Router();
 const credentialController = require("../controllers/credential.controller");
 const userController = require("../controllers/user.controller");
 const templateController = require("../controllers/template.controller");
+const badgeCatalogController = require("../controllers/badgeCatalog.controller");
 const profileController = require("../controllers/profile.controller");
 const requireAdmin = require("../middleware/role.middleware")("admin");
 
@@ -27,6 +28,13 @@ router.get("/verification-logs", credentialController.getVerificationLogs);
 
 // Activity/Audit
 router.get("/activity-logs", profileController.getAdminActivityLogs);
+
+// Badge Catalog Directory Admin Management
+router.get("/badge-catalog", badgeCatalogController.getAllBadges);
+router.post("/badge-catalog", badgeCatalogController.createBadge);
+router.put("/badge-catalog/:id", badgeCatalogController.updateBadge);
+router.patch("/badge-catalog/:id/toggle-visibility", badgeCatalogController.toggleVisibility);
+router.delete("/badge-catalog/:id", badgeCatalogController.deleteBadge);
 
 // Badge Templates & Pathways
 router.get("/templates", templateController.getTemplates);

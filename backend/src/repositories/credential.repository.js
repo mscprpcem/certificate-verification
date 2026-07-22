@@ -18,9 +18,11 @@ class CredentialRepository {
     const cleanEvent = (eventName || '').toLowerCase().trim();
     const cleanYear = (year || '').trim();
 
+    const typeCond = `(type = 'certificate' OR category = 'Event' OR category LIKE '%Event%')`;
+
     // 1. Primary search: Name AND Event Name title match (Top Priority)
     if (cleanEvent) {
-      let sql = `SELECT * FROM credentials WHERE LOWER(recipient_name) = ? AND type = 'certificate' AND LOWER(title) LIKE ?`;
+      let sql = `SELECT * FROM credentials WHERE LOWER(recipient_name) = ? AND ${typeCond} AND LOWER(title) LIKE ?`;
       const params = [cleanName, `%${cleanEvent}%`];
 
       if (cleanYear) {
@@ -36,25 +38,33 @@ class CredentialRepository {
 
     // 2. Secondary search: Name AND Year match
     if (cleanYear) {
-      let sql = `SELECT * FROM credentials WHERE LOWER(recipient_name) = ? AND type = 'certificate' AND (issue_date LIKE ? OR id LIKE ?) ORDER BY created_at DESC LIMIT 1`;
+      let sql = `SELECT * FROM credentials WHERE LOWER(recipient_name) = ? AND ${typeCond} AND (issue_date LIKE ? OR id LIKE ?) ORDER BY created_at DESC LIMIT 1`;
       const res = await dbGet(sql, [cleanName, `%${cleanYear}%`, `%${cleanYear}%`]);
       if (res) return res;
     }
 
     // 3. Fallback search: Name match
     return await dbGet(
-      `SELECT * FROM credentials WHERE LOWER(recipient_name) = ? AND type = 'certificate' ORDER BY created_at DESC LIMIT 1`,
+      `SELECT * FROM credentials WHERE LOWER(recipient_name) = ? AND ${typeCond} ORDER BY created_at DESC LIMIT 1`,
       [cleanName]
     );
   }
 
   async findByRecipientNameAndTeam(name, year) {
+    if (!name || !name.trim() || !year || !year.trim()) {
+      return null;
+    }
+
+    const cleanName = name.toLowerCase().trim();
+    const cleanYear = year.trim();
+    const firstYear = cleanYear.split('-')[0];
+
     return await dbGet(
       `SELECT * FROM credentials 
        WHERE LOWER(recipient_name) = ? 
-       AND type = 'badge'
-       AND (issue_date LIKE ? OR ? = '')`,
-      [name.toLowerCase().trim(), `%${year}%`, year || ""]
+       AND (type = 'badge' OR category = 'Team' OR category LIKE '%Team%')
+       AND (issue_date LIKE ? OR issue_date LIKE ?)`,
+      [cleanName, `%${cleanYear}%`, `%${firstYear}%`]
     );
   }
 

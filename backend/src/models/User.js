@@ -10,9 +10,7 @@ class User {
       profile_photo: data.profile_photo || '',
       linkedin_url: data.linkedin_url || '',
       github_url: data.github_url || '',
-      skills: data.skills || '{}',
-      xp: data.xp || 0,
-      level: data.level || 'Explorer'
+      skills: data.skills || '{}'
     };
   }
 }

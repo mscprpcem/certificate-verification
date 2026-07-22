@@ -5,29 +5,33 @@ const profileRepository = require("../repositories/profile.repository");
 const authConfig = require("../config/auth");
 
 class AuthService {
-  calculateLevel(xp) {
-    if (xp >= 5000) return "Ambassador";
-    if (xp >= 2500) return "Expert";
-    if (xp >= 1200) return "Innovator";
-    if (xp >= 500) return "Contributor";
-    return "Explorer";
-  }
+  async register(name, email, password, username = null) {
+    const existingEmail = await userRepository.findByEmail(email);
+    if (existingEmail && existingEmail.password_hash) {
+      throw new Error("Email is already registered.");
+    }
 
-  async register(name, email, password) {
-    const existingUser = await userRepository.findByEmail(email);
+    const finalUsername = (username || email.split('@')[0]).toLowerCase().trim();
+
+    if (!/^[a-zA-Z0-9_-]{3,20}$/.test(finalUsername)) {
+      throw new Error("Username must be 3-20 characters long and contain only letters, numbers, underscores, or hyphens.");
+    }
+
+    const existingUsername = await userRepository.findByUsername(finalUsername);
+    if (existingUsername && existingUsername.email.toLowerCase() !== email.toLowerCase().trim()) {
+      throw new Error("Username is already taken. Please choose another username.");
+    }
+
     const hashedPassword = await bcrypt.hash(password, authConfig.bcryptSaltRounds);
     let userId;
 
-    if (existingUser) {
-      if (!existingUser.password_hash) {
-        await userRepository.updateLazyProfile(existingUser.id, name, hashedPassword);
-        userId = existingUser.id;
-      } else {
-        throw new Error("Email is already registered.");
-      }
+    if (existingEmail && !existingEmail.password_hash) {
+      await userRepository.updateLazyProfile(existingEmail.id, name, hashedPassword);
+      userId = existingEmail.id;
     } else {
       userId = await userRepository.create({
         name,
+        username: finalUsername,
         email,
         password_hash: hashedPassword,
         role: "student",
@@ -36,9 +40,7 @@ class AuthService {
         profile_photo: "",
         linkedin_url: "",
         github_url: "",
-        skills: "{}",
-        xp: 0,
-        level: "Explorer"
+        skills: "{}"
       });
     }
 
@@ -82,9 +84,7 @@ class AuthService {
         profile_photo: "",
         linkedin_url: "",
         github_url: "",
-        skills: "{}",
-        xp: 0,
-        level: "Explorer"
+        skills: "{}"
       });
     } else {
       userId = user.id;
@@ -92,26 +92,13 @@ class AuthService {
 
     await credentialRepository.updateUserIdByEmail(userId, normEmail);
 
-    if (normEmail === "student@mscprpcem.tech") {
-      await userRepository.updateXpAndLevel(userId, 1840, "Innovator");
-    }
-
     await profileRepository.createActivityLog(userId, "First Login - Digital Wallet Linked");
 
     return await userRepository.findById(userId);
   }
 
   async verifySession(userId) {
-    const user = await userRepository.findById(userId);
-    if (!user) return null;
-
-    const currentLevel = this.calculateLevel(user.xp);
-    if (currentLevel !== user.level) {
-      await userRepository.updateXpAndLevel(user.id, user.xp, currentLevel);
-      user.level = currentLevel;
-    }
-
-    return user;
+    return await userRepository.findById(userId);
   }
 }
 

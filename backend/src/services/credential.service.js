@@ -21,8 +21,18 @@ class CredentialService {
       }
     } else if (name) {
       if (type === "event") {
+        if (!name.trim() || !year || !year.trim() || !eventName || !eventName.trim()) {
+          const queryId = name || "unknown";
+          await credentialRepository.createVerificationLog(queryId, ip, ua, "not_found");
+          return { success: false, message: "Details not found. Please enter Name, Event Name, and Year properly." };
+        }
         matched = await credentialRepository.findByRecipientNameAndEvent(name, year, eventName);
       } else if (type === "team") {
+        if (!name.trim() || !teamYear || !teamYear.trim()) {
+          const queryId = name || "unknown";
+          await credentialRepository.createVerificationLog(queryId, ip, ua, "not_found");
+          return { success: false, message: "Details not found. Please enter Name and Team Year properly." };
+        }
         matched = await credentialRepository.findByRecipientNameAndTeam(name, teamYear);
       } else {
         matched = await credentialRepository.findByRecipientNameFirst(name);

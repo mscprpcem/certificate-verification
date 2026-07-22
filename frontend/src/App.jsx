@@ -9,13 +9,17 @@ import AdminPanel from './pages/AdminPanel';
 import StudentDashboard from './pages/StudentDashboard';
 import BadgeCatalog from './pages/BadgeCatalog';
 import ActivityFeed from './pages/ActivityFeed';
+import NotFound from './pages/NotFound';
 
 export default function App() {
   const [user, setUser] = useState(null);
   const [currentView, setCurrentView] = useState('home'); 
   const [adminSubView, setAdminSubView] = useState('dashboard');
-  // Views: 'home', 'auth', 'dashboard', 'my-credentials', 'profile', 'settings', 'admin', 'credential-detail', 'catalog', 'activity'
+  const [authTab, setAuthTab] = useState('login');
+  // Views: 'home', 'auth', 'dashboard', 'my-credentials', 'profile', 'settings', 'admin', 'credential-detail', 'catalog', 'activity', '404'
   
+  const [showLogoutModal, setShowLogoutModal] = useState(false);
+
   const [platformMetrics, setPlatformMetrics] = useState({
     certificatesIssued: 24,
     badgesIssued: 18,
@@ -93,11 +97,123 @@ export default function App() {
     }
   };
 
+  const navigateTo = (view, customPath = null) => {
+    let targetView = view;
+    let path = customPath;
+
+    if (view === 'register') {
+      targetView = 'auth';
+      setAuthTab('register');
+      if (!path) path = '/register';
+    } else if (view === 'auth' || view === 'login') {
+      targetView = 'auth';
+      setAuthTab('login');
+      if (!path) path = '/login';
+    }
+
+    setCurrentView(targetView);
+
+    if (!path) {
+      switch (targetView) {
+        case 'home':
+          path = '/';
+          break;
+        case 'auth':
+          path = authTab === 'register' ? '/register' : '/login';
+          break;
+        case 'catalog':
+          path = '/catalog';
+          break;
+        case 'dashboard':
+          path = '/dashboard';
+          break;
+        case 'my-credentials':
+          path = '/my-credentials';
+          break;
+        case 'activity':
+          path = '/activity';
+          break;
+        case 'profile':
+          path = '/profile';
+          break;
+        case 'settings':
+          path = '/settings';
+          break;
+        case 'admin':
+          path = '/admin';
+          break;
+        case 'public-profile':
+          path = `/u/${encodeURIComponent(profileSearchQuery.trim() || 'amityadav')}`;
+          break;
+        case 'credential-detail':
+          path = '/credential-detail';
+          break;
+        default:
+          path = '/';
+      }
+    }
+    if (window.location.pathname !== path) {
+      window.history.pushState({}, '', path);
+    }
+  };
+
+  const resolveRouteFromPath = (path) => {
+    const cleanPath = path.toLowerCase().replace(/\/$/, '') || '/';
+
+    if (cleanPath === '/' || cleanPath === '/index.html' || cleanPath === '') {
+      setCurrentView('home');
+    } else if (cleanPath === '/login' || cleanPath === '/auth') {
+      setAuthTab('login');
+      setCurrentView('auth');
+    } else if (cleanPath === '/register' || cleanPath === '/signup') {
+      setAuthTab('register');
+      setCurrentView('auth');
+    } else if (cleanPath === '/catalog' || cleanPath === '/badges') {
+      setCurrentView('catalog');
+    } else if (cleanPath === '/dashboard' || cleanPath === '/portal') {
+      setCurrentView('dashboard');
+    } else if (cleanPath === '/my-credentials' || cleanPath === '/credentials') {
+      setCurrentView('my-credentials');
+    } else if (cleanPath === '/activity' || cleanPath === '/timeline') {
+      setCurrentView('activity');
+    } else if (cleanPath === '/profile') {
+      setCurrentView('profile');
+    } else if (cleanPath === '/settings') {
+      setCurrentView('settings');
+    } else if (cleanPath === '/admin' || cleanPath.startsWith('/admin/')) {
+      setCurrentView('admin');
+      const sub = cleanPath.replace(/^\/admin\/?/, '').trim();
+      if (sub) {
+        setAdminSubView(sub);
+      } else {
+        setAdminSubView('dashboard');
+      }
+    } else if (cleanPath.startsWith('/u/')) {
+      const uPath = window.location.pathname.replace(/^\/u\//i, '').trim();
+      if (uPath) {
+        setProfileSearchQuery(uPath);
+        setCurrentView('public-profile');
+      } else {
+        setCurrentView('404');
+      }
+    } else if (cleanPath === '/credential-detail') {
+      setCurrentView('credential-detail');
+    } else {
+      setCurrentView('404');
+    }
+  };
+
   useEffect(() => {
     checkSession();
     fetchPlatformData();
 
-    // Check if query string verification links loaded
+    resolveRouteFromPath(window.location.pathname);
+
+    const handlePopState = () => {
+      resolveRouteFromPath(window.location.pathname);
+    };
+    window.addEventListener('popstate', handlePopState);
+
     const params = new URLSearchParams(window.location.search);
     const verifyId = params.get('verifyId');
     if (verifyId) {
@@ -111,7 +227,10 @@ export default function App() {
     if (usernameParam) {
       setProfileSearchQuery(usernameParam);
       setCurrentView('public-profile');
+      window.history.pushState({}, '', `/u/${usernameParam}`);
     }
+
+    return () => window.removeEventListener('popstate', handlePopState);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -142,13 +261,18 @@ export default function App() {
     }
   };
 
-  const handleLogout = async () => {
+  const triggerLogout = () => {
+    setShowLogoutModal(true);
+  };
+
+  const confirmLogout = async () => {
+    setShowLogoutModal(false);
     try {
       await fetch('/api/auth/logout');
       setUser(null);
       setCredentials([]);
       setSelectedCred(null);
-      setCurrentView('home');
+      navigateTo('home', '/');
       showNotification("Signed out successfully");
     } catch (err) {
       console.error("Sign out error:", err);
@@ -181,12 +305,41 @@ export default function App() {
       if (!val) return;
       url += `url=${encodeURIComponent(val.trim())}`;
     } else if (queryTab === 'name') {
-      if (!searchName) return;
-      url += `name=${encodeURIComponent(searchName.trim())}&type=${nameType}`;
+      if (!searchName || !searchName.trim()) {
+        setVerifyResult({
+          success: false,
+          message: "Details not found. Please enter Student Full Name."
+        });
+        setTimeout(() => {
+          document.getElementById('verify-results-anchor')?.scrollIntoView({ behavior: 'smooth' });
+        }, 150);
+        return;
+      }
+
       if (nameType === 'event') {
-        url += `&year=${encodeURIComponent(searchYear)}&eventName=${encodeURIComponent(searchEvent)}`;
+        if (!searchEvent || !searchYear) {
+          setVerifyResult({
+            success: false,
+            message: "Details not found. Please select Event Name and Year properly."
+          });
+          setTimeout(() => {
+            document.getElementById('verify-results-anchor')?.scrollIntoView({ behavior: 'smooth' });
+          }, 150);
+          return;
+        }
+        url += `name=${encodeURIComponent(searchName.trim())}&type=${nameType}&year=${encodeURIComponent(searchYear)}&eventName=${encodeURIComponent(searchEvent)}`;
       } else {
-        url += `&teamYear=${encodeURIComponent(searchTeamYear)}`;
+        if (!searchTeamYear) {
+          setVerifyResult({
+            success: false,
+            message: "Details not found. Please select Team Year properly."
+          });
+          setTimeout(() => {
+            document.getElementById('verify-results-anchor')?.scrollIntoView({ behavior: 'smooth' });
+          }, 150);
+          return;
+        }
+        url += `name=${encodeURIComponent(searchName.trim())}&type=${nameType}&teamYear=${encodeURIComponent(searchTeamYear)}`;
       }
     }
 
@@ -686,7 +839,7 @@ export default function App() {
     <div className="app-container">
       {/* Header bar */}
       <header className="navbar">
-        <a href="#" className="nav-brand" onClick={() => { setCurrentView('home'); setVerifyResult(null); }}>
+        <a href="/" className="nav-brand" onClick={(e) => { e.preventDefault(); navigateTo('home'); setVerifyResult(null); }}>
           <img src="/assets/MSC_logo.png" className="nav-logo" alt="Logo" />
           <div className="brand-text">
             <span className="brand-title">Microsoft Student Club</span>
@@ -703,43 +856,33 @@ export default function App() {
 
         {/* Navigation links */}
         <nav className="nav-links">
-          <a href="#" className={`nav-link ${currentView === 'home' ? 'active' : ''}`} onClick={() => { setCurrentView('home'); setVerifyResult(null); }}>Home</a>
-          <a href="#" className={`nav-link ${currentView === 'catalog' ? 'active' : ''}`} onClick={() => { setCurrentView('catalog'); setVerifyResult(null); }}>Badge Directory</a>
+          <a href="/" className={`nav-link ${currentView === 'home' ? 'active' : ''}`} onClick={(e) => { e.preventDefault(); navigateTo('home'); setVerifyResult(null); }}>Home</a>
+          <a href="/catalog" className={`nav-link ${currentView === 'catalog' ? 'active' : ''}`} onClick={(e) => { e.preventDefault(); navigateTo('catalog'); setVerifyResult(null); }}>Badge Directory</a>
           {user && (
             <>
-              <a href="#" className={`nav-link ${currentView === 'dashboard' ? 'active' : ''}`} onClick={() => { setCurrentView('dashboard'); fetchMyWallet(); }}>Portal</a>
-              <a href="#" className={`nav-link ${currentView === 'my-credentials' ? 'active' : ''}`} onClick={() => { setCurrentView('my-credentials'); fetchMyWallet(); }}>My Credentials</a>
+              <a href="/dashboard" className={`nav-link ${currentView === 'dashboard' ? 'active' : ''}`} onClick={(e) => { e.preventDefault(); navigateTo('dashboard'); fetchMyWallet(); }}>Portal</a>
+              <a href="/my-credentials" className={`nav-link ${currentView === 'my-credentials' ? 'active' : ''}`} onClick={(e) => { e.preventDefault(); navigateTo('my-credentials'); fetchMyWallet(); }}>My Credentials</a>
             </>
           )}
         </nav>
 
         <div className="nav-actions">
           {user ? (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-              {/* Notification bells */}
-              <button className="help-btn nav-icon-btn" style={{ position: 'relative' }} onClick={() => showNotification("You have 3 new notifications.")}>
-                <i className="fa-regular fa-bell"></i>
-                <span style={{ position: 'absolute', top: '2px', right: '2px', width: '6px', height: '6px', background: '#2563eb', borderRadius: '50%' }}></span>
-              </button>
-
-              <button className="help-btn nav-icon-btn" onClick={() => showNotification("No new private messages.")}>
-                <i className="fa-regular fa-envelope"></i>
-              </button>
-
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
               {/* User profile dropdown */}
               <div 
                 className="navbar-profile-wrapper"
-                onClick={() => setCurrentView('settings')}
+                onClick={() => navigateTo('settings')}
                 style={{ cursor: 'pointer' }}
               >
-                <div className="profile-photo-circle" style={{ width: '32px', height: '32px', fontSize: '12px', margin: 0, border: '1px solid #cbd5e1', background: '#eff6ff' }}>
+                <div className="profile-photo-circle" style={{ width: '28px', height: '28px', fontSize: '11px', margin: 0, border: '1px solid #cbd5e1', background: '#eff6ff', color: '#2563eb', fontWeight: 800 }}>
                   {user.name ? user.name[0].toUpperCase() : 'A'}
                 </div>
-                <div className="profile-name-details" style={{ display: 'flex', flexDirection: 'column', lineHeight: '1.2' }}>
-                  <span style={{ fontSize: '12px', fontWeight: 800, color: 'var(--text-main)' }}>
+                <div className="profile-name-details" style={{ display: 'flex', flexDirection: 'column', lineHeight: '1.15' }}>
+                  <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-main)' }}>
                     {user.name || 'Student'}
                   </span>
-                  <span style={{ fontSize: '9px', color: 'var(--text-muted)', fontWeight: 700 }}>
+                  <span style={{ fontSize: '9px', color: 'var(--text-muted)', fontWeight: 600 }}>
                     {user.role === 'admin' ? 'Control Panel' : 'Settings'}
                   </span>
                 </div>
@@ -747,8 +890,9 @@ export default function App() {
 
               <button 
                 className="signin-btn" 
-                onClick={handleLogout} 
-                style={{ background: '#f1f5f9', color: 'var(--text-main)', boxShadow: 'none', padding: '6px 12px', fontSize: '11px' }}
+                onClick={triggerLogout}
+                title="Sign Out" 
+                style={{ background: '#f1f5f9', color: 'var(--text-muted)', boxShadow: 'none', padding: '5px 10px', fontSize: '12px', borderRadius: '8px' }}
               >
                 <i className="fa-solid fa-arrow-right-from-bracket"></i>
               </button>
@@ -758,7 +902,7 @@ export default function App() {
               <button className="help-btn" onClick={() => showNotification("Verify achievements or sign in to open your digital wallet.")}>
                 <i className="fa-regular fa-circle-question"></i>
               </button>
-              <button className="signin-btn" onClick={() => setCurrentView('auth')}>
+              <button className="signin-btn" onClick={() => navigateTo('auth', '/login')}>
                 <i className="fa-solid fa-user"></i> Sign In
               </button>
             </>
@@ -787,28 +931,28 @@ export default function App() {
               </div>
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                <a href="#" className="nav-link" onClick={() => { setCurrentView('home'); setMobileMenuOpen(false); }}>Home</a>
-                <a href="#" className="nav-link" onClick={() => { setCurrentView('catalog'); setMobileMenuOpen(false); }}>Badge Directory</a>
+                <a href="/" className="nav-link" onClick={(e) => { e.preventDefault(); navigateTo('home'); setMobileMenuOpen(false); }}>Home</a>
+                <a href="/catalog" className="nav-link" onClick={(e) => { e.preventDefault(); navigateTo('catalog'); setMobileMenuOpen(false); }}>Badge Directory</a>
                 
                 {user && (
                   <>
-                    <a href="#" className="nav-link" onClick={() => { setCurrentView('dashboard'); setMobileMenuOpen(false); }}>Portal Dashboard</a>
-                    <a href="#" className="nav-link" onClick={() => { setCurrentView('my-credentials'); setMobileMenuOpen(false); }}>My Credentials</a>
-                    <a href="#" className="nav-link" onClick={() => { setCurrentView('profile'); setMobileMenuOpen(false); }}>My Public Profile</a>
-                    <a href="#" className="nav-link" onClick={() => { setCurrentView('settings'); setMobileMenuOpen(false); }}>Settings</a>
+                    <a href="/dashboard" className="nav-link" onClick={(e) => { e.preventDefault(); navigateTo('dashboard'); setMobileMenuOpen(false); }}>Portal Dashboard</a>
+                    <a href="/my-credentials" className="nav-link" onClick={(e) => { e.preventDefault(); navigateTo('my-credentials'); setMobileMenuOpen(false); }}>My Credentials</a>
+                    <a href="/profile" className="nav-link" onClick={(e) => { e.preventDefault(); navigateTo('profile'); setMobileMenuOpen(false); }}>My Public Profile</a>
+                    <a href="/settings" className="nav-link" onClick={(e) => { e.preventDefault(); navigateTo('settings'); setMobileMenuOpen(false); }}>Settings</a>
                   </>
                 )}
 
                 {user && user.role === 'admin' && (
-                  <a href="#" className="nav-link" onClick={() => { setCurrentView('admin'); setMobileMenuOpen(false); }}>Admin Panel</a>
+                  <a href="/admin" className="nav-link" onClick={(e) => { e.preventDefault(); navigateTo('admin'); setMobileMenuOpen(false); }}>Admin Panel</a>
                 )}
 
                 {user ? (
-                  <button className="signin-btn" onClick={() => { handleLogout(); setMobileMenuOpen(false); }} style={{ width: '100%', justifyContent: 'center', marginTop: '20px' }}>
+                  <button className="signin-btn" onClick={() => { triggerLogout(); setMobileMenuOpen(false); }} style={{ width: '100%', justifyContent: 'center', marginTop: '20px' }}>
                     Sign Out
                   </button>
                 ) : (
-                  <button className="signin-btn" onClick={() => { setCurrentView('auth'); setMobileMenuOpen(false); }} style={{ width: '100%', justifyContent: 'center', marginTop: '20px' }}>
+                  <button className="signin-btn" onClick={() => { navigateTo('auth', '/login'); setMobileMenuOpen(false); }} style={{ width: '100%', justifyContent: 'center', marginTop: '20px' }}>
                     Sign In
                   </button>
                 )}
@@ -926,7 +1070,7 @@ export default function App() {
                     <li 
                       style={{ borderTop: '1px dashed #cbd5e1', paddingTop: '10px', marginTop: '6px', borderRadius: '0' }}
                       className="sidebar-menu-item" 
-                      onClick={() => { setCurrentView('dashboard'); fetchMyWallet(); }}
+                      onClick={() => { navigateTo('dashboard'); fetchMyWallet(); }}
                     >
                       <i className="fa-solid fa-circle-chevron-left"></i> Student Panel
                     </li>
@@ -935,40 +1079,40 @@ export default function App() {
                   <>
                     <li 
                       className={`sidebar-menu-item ${currentView === 'dashboard' ? 'active' : ''}`} 
-                      onClick={() => { setCurrentView('dashboard'); fetchMyWallet(); }}
+                      onClick={() => { navigateTo('dashboard'); fetchMyWallet(); }}
                     >
                       <i className="fa-solid fa-house"></i> Dashboard
                     </li>
                     <li 
                       className={`sidebar-menu-item ${currentView === 'my-credentials' ? 'active' : ''}`} 
-                      onClick={() => { setCurrentView('my-credentials'); fetchMyWallet(); }}
+                      onClick={() => { navigateTo('my-credentials'); fetchMyWallet(); }}
                     >
                       <i className="fa-solid fa-file-contract"></i> My Credentials
                     </li>
                     <li 
                       className={`sidebar-menu-item ${currentView === 'activity' ? 'active' : ''}`} 
-                      onClick={() => setCurrentView('activity')}
+                      onClick={() => navigateTo('activity')}
                     >
                       <i className="fa-solid fa-clock-rotate-left"></i> Activity Timeline
                     </li>
                     {user.role !== 'admin' && (
                       <li 
                         className={`sidebar-menu-item ${currentView === 'profile' ? 'active' : ''}`} 
-                        onClick={() => setCurrentView('profile')}
+                        onClick={() => navigateTo('profile')}
                       >
                         <i className="fa-solid fa-user-check"></i> Public Profile
                       </li>
                     )}
                     <li 
                       className={`sidebar-menu-item ${currentView === 'settings' ? 'active' : ''}`} 
-                      onClick={() => setCurrentView('settings')}
+                      onClick={() => navigateTo('settings')}
                     >
                       <i className="fa-solid fa-sliders"></i> Account Settings
                     </li>
                     {user.role === 'admin' && (
                       <li 
                         className={`sidebar-menu-item ${currentView === 'admin' ? 'active' : ''}`} 
-                        onClick={() => setCurrentView('admin')}
+                        onClick={() => navigateTo('admin')}
                         style={{ borderTop: '1px dashed #cbd5e1', paddingTop: '10px', marginTop: '6px', borderRadius: '0' }}
                       >
                         <i className="fa-solid fa-user-gear"></i> Admin Panel
@@ -984,7 +1128,7 @@ export default function App() {
                     <div className="sidebar-profile-promo-card">
                       <h5>Showcase Profile</h5>
                       <p>Share your credentials and portfolio with a public page.</p>
-                      <button className="public-profile-anchor" style={{ width: '100%', justifyContent: 'center' }} onClick={() => setCurrentView('profile')}>
+                      <button className="public-profile-anchor" style={{ width: '100%', justifyContent: 'center' }} onClick={() => navigateTo('profile')}>
                         View Public Profile
                       </button>
                     </div>
@@ -1005,10 +1149,10 @@ export default function App() {
                 <StudentDashboard
                   user={user}
                   credentials={credentials}
-                  onSelectCredential={(c) => { setSelectedCred(c); setCurrentView('credential-detail'); }}
+                  onSelectCredential={(c) => { setSelectedCred(c); navigateTo('credential-detail'); }}
                   onDownload={handleCertificateDownload}
                   onShare={handleCopyLink}
-                  onNavigateTo={(view) => setCurrentView(view)}
+                  onNavigateTo={(view) => navigateTo(view)}
                 />
               )}
 
@@ -1016,10 +1160,10 @@ export default function App() {
                 <MyCredentials
                   user={user}
                   credentials={credentials}
-                  onSelectCredential={(c) => { setSelectedCred(c); setCurrentView('credential-detail'); }}
+                  onSelectCredential={(c) => { setSelectedCred(c); navigateTo('credential-detail'); }}
                   onShare={handleCopyLink}
                   onDownload={handleCertificateDownload}
-                  onNavigateTo={(view) => setCurrentView(view)}
+                  onNavigateTo={(view) => navigateTo(view)}
                   getLinkedInLink={getLinkedInLink}
                 />
               )}
@@ -1048,7 +1192,13 @@ export default function App() {
                   user={user} 
                   onShowNotification={showNotification} 
                   adminSubView={adminSubView}
-                  onNavigateToSubView={(view) => setAdminSubView(view)}
+                  onNavigateToSubView={(subView) => {
+                    setAdminSubView(subView);
+                    const targetPath = subView === 'dashboard' ? '/admin' : `/admin/${subView}`;
+                    if (window.location.pathname !== targetPath) {
+                      window.history.pushState({}, '', targetPath);
+                    }
+                  }}
                 />
               )}
             </div>
@@ -1058,8 +1208,24 @@ export default function App() {
           <>
             {currentView === 'auth' && (
               <Auth
-                onLoginSuccess={(usr) => { setUser(usr); fetchMyWallet(); setCurrentView('dashboard'); }}
-                onViewChange={(view) => setCurrentView(view)}
+                initialTab={authTab}
+                onTabChange={(tab) => {
+                  setAuthTab(tab);
+                  const targetPath = tab === 'register' ? '/register' : '/login';
+                  if (window.location.pathname !== targetPath) {
+                    window.history.pushState({}, '', targetPath);
+                  }
+                }}
+                onLoginSuccess={(usr) => { 
+                  setUser(usr); 
+                  fetchMyWallet(); 
+                  if (usr && usr.role === 'admin') {
+                    navigateTo('admin', '/admin');
+                  } else {
+                    navigateTo('dashboard', '/dashboard');
+                  }
+                }}
+                onViewChange={(view) => navigateTo(view)}
               />
             )}
 
@@ -1068,7 +1234,7 @@ export default function App() {
                 credential={selectedCred}
                 onBack={() => {
                   setSelectedCred(null);
-                  setCurrentView(user ? 'my-credentials' : 'home');
+                  navigateTo(user ? 'my-credentials' : 'home');
                 }}
                 onShare={handleCopyLink}
                 onDownload={handleCertificateDownload}
@@ -1087,7 +1253,17 @@ export default function App() {
                     value={profileSearchQuery}
                     onChange={(e) => setProfileSearchQuery(e.target.value)}
                   />
-                  <button className="verify-btn" style={{ whiteSpace: 'nowrap' }} onClick={() => setCurrentView('public-profile')}>Search</button>
+                  <button 
+                    className="verify-btn" 
+                    style={{ whiteSpace: 'nowrap' }} 
+                    onClick={() => {
+                      if (profileSearchQuery.trim()) {
+                        navigateTo('public-profile', `/u/${encodeURIComponent(profileSearchQuery.trim())}`);
+                      }
+                    }}
+                  >
+                    Search
+                  </button>
                 </div>
                 <PublicProfile username={profileSearchQuery} onShowNotification={showNotification} />
               </div>
@@ -1095,6 +1271,10 @@ export default function App() {
 
             {currentView === 'catalog' && (
               <BadgeCatalog />
+            )}
+
+            {currentView === '404' && (
+              <NotFound onNavigate={(view) => navigateTo(view)} />
             )}
           </>
         )}
@@ -1250,20 +1430,56 @@ export default function App() {
 
                         {nameType === 'event' ? (
                           <>
-                            <select className="verify-input" style={{ paddingLeft: '16px', margin: 0 }} value={searchYear} onChange={(e) => setSearchYear(e.target.value)}>
+                            <select 
+                              className="verify-input" 
+                              style={{ paddingLeft: '16px', margin: 0 }} 
+                              value={searchYear} 
+                              onChange={(e) => {
+                                const yr = e.target.value;
+                                setSearchYear(yr);
+                                setSearchEvent('');
+                                setVerifyResult(null);
+                              }}
+                            >
                               <option value="">Select Year</option>
                               <option value="2026">2026</option>
                               <option value="2025">2025</option>
+                              <option value="2024">2024</option>
                             </select>
-                            <select className="verify-input" style={{ paddingLeft: '16px', margin: 0 }} value={searchEvent} onChange={(e) => setSearchEvent(e.target.value)}>
+                            <select 
+                              className="verify-input" 
+                              style={{ paddingLeft: '16px', margin: 0 }} 
+                              value={searchEvent} 
+                              onChange={(e) => {
+                                setSearchEvent(e.target.value);
+                                setVerifyResult(null);
+                              }}
+                            >
                               <option value="">Select Event</option>
-                              <option value="Copilot Dev Days">Copilot Dev Days</option>
-                              <option value="GitLit — The Diwali Code Fest">GitLit — The Diwali Code Fest</option>
-                              <option value=".NET Conf 2025 Amravati">.NET Conf 2025 Amravati</option>
+                              {((searchYear && EVENTS_BY_YEAR[searchYear]) 
+                                ? EVENTS_BY_YEAR[searchYear] 
+                                : [
+                                    'Copilot Dev Days',
+                                    'GitLit — The Diwali Code Fest',
+                                    '.NET Conf 2025 Amravati',
+                                    'Microsoft Azure Cloud Specialist Workshop',
+                                    'AI & LLM Integration Bootcamp'
+                                  ]
+                              ).map((evt) => (
+                                <option key={evt} value={evt}>{evt}</option>
+                              ))}
                             </select>
                           </>
                         ) : (
-                          <select className="verify-input" style={{ paddingLeft: '16px', margin: 0 }} value={searchTeamYear} onChange={(e) => setSearchTeamYear(e.target.value)}>
+                          <select 
+                            className="verify-input" 
+                            style={{ paddingLeft: '16px', margin: 0 }} 
+                            value={searchTeamYear} 
+                            onChange={(e) => {
+                              setSearchTeamYear(e.target.value);
+                              setVerifyResult(null);
+                            }}
+                          >
                             <option value="">Select Team Year</option>
                             <option value="2025-2026">2025-2026</option>
                             <option value="2024-2025">2024-2025</option>
@@ -1595,8 +1811,10 @@ export default function App() {
                       <div className="error-result-card">
                         <div className="error-icon-box"><i className="fa-solid fa-circle-exclamation"></i></div>
                         <div>
-                          <div className="error-status-title">Verification Refused</div>
-                          <div className="error-message-text">❌ Record not found in our secure registry. Ensure the ID is spelled correctly.</div>
+                          <div className="error-status-title">Details Not Found</div>
+                          <div className="error-message-text">
+                            {verifyResult.message || "❌ Record not found in our secure registry. Ensure Name, Event Name, and Year are entered properly."}
+                          </div>
                         </div>
                       </div>
                     )}
@@ -1742,9 +1960,9 @@ export default function App() {
           <div className="footer-col">
             <h3>Quick Links</h3>
             <ul className="footer-links">
-              <li><a href="#" onClick={() => { setCurrentView('home'); setVerifyResult(null); }}>Verify Credential</a></li>
-              <li><a href="#" onClick={() => { setCurrentView('home'); setActiveVerifyTab('name'); }}>Explore Credentials</a></li>
-              <li><a href="#" onClick={() => { if(user) { setCurrentView('dashboard'); } else { setCurrentView('auth'); } }}>Public Profiles</a></li>
+              <li><a href="/" onClick={(e) => { e.preventDefault(); navigateTo('home'); setVerifyResult(null); }}>Verify Credential</a></li>
+              <li><a href="/" onClick={(e) => { e.preventDefault(); navigateTo('home'); setActiveVerifyTab('name'); }}>Explore Credentials</a></li>
+              <li><a href={user ? "/dashboard" : "/login"} onClick={(e) => { e.preventDefault(); navigateTo(user ? 'dashboard' : 'auth', user ? '/dashboard' : '/login'); }}>Public Profiles</a></li>
             </ul>
           </div>
           
@@ -1820,6 +2038,35 @@ export default function App() {
                   Clicking any button instantly verifies ownership, creates a lazy profile, and merges all records.
                 </p>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Logout Confirmation Modal */}
+      {showLogoutModal && (
+        <div className="logout-modal-overlay" onClick={() => setShowLogoutModal(false)}>
+          <div className="logout-modal-card" onClick={(e) => e.stopPropagation()}>
+            <div className="logout-modal-icon-wrapper">
+              <i className="fa-solid fa-arrow-right-from-bracket"></i>
+            </div>
+            <h3 className="logout-modal-title">Confirm Sign Out</h3>
+            <p className="logout-modal-text">
+              Are you sure you want to log out? You will need to sign in again to access your digital credentials wallet and student dashboard.
+            </p>
+            <div className="logout-modal-actions">
+              <button 
+                className="logout-modal-btn cancel" 
+                onClick={() => setShowLogoutModal(false)}
+              >
+                Cancel
+              </button>
+              <button 
+                className="logout-modal-btn confirm" 
+                onClick={confirmLogout}
+              >
+                <i className="fa-solid fa-right-from-bracket"></i> Yes, Sign Out
+              </button>
             </div>
           </div>
         </div>

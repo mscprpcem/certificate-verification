@@ -1,12 +1,12 @@
 const { dbRun, dbAll, dbGet } = require("../config/database");
 
 class ProfileRepository {
-  async updateProfile(userId, bio, headline, linkedinUrl, githubUrl, skillsJson) {
+  async updateProfile(userId, name, bio, headline, profilePhoto, linkedinUrl, githubUrl, skillsJson) {
     return await dbRun(
       `UPDATE users 
-       SET bio = ?, headline = ?, linkedin_url = ?, github_url = ?, skills = ?
+       SET name = COALESCE(?, name), bio = ?, headline = ?, profile_photo = COALESCE(?, profile_photo), linkedin_url = ?, github_url = ?, skills = ?
        WHERE id = ?`,
-      [bio, headline, linkedinUrl, githubUrl, skillsJson, userId]
+      [name, bio, headline, profilePhoto, linkedinUrl, githubUrl, skillsJson, userId]
     );
   }
 

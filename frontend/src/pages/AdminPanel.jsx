@@ -33,10 +33,17 @@ export default function AdminPanel({ _user, onShowNotification, adminSubView, on
   const [usersSearch, setUsersSearch] = useState('');
   const [requestsSearch, setRequestsSearch] = useState('');
 
+  // Badge Catalog Management State
+  const [catalogBadges, setCatalogBadges] = useState([]);
+  const [catalogLoading, setCatalogLoading] = useState(false);
+  const [editingCatalogBadge, setEditingCatalogBadge] = useState(null);
+  const [showAddCatalogModal, setShowAddCatalogModal] = useState(false);
+
   useEffect(() => {
     fetchCredentials();
     fetchTemplates();
     fetchCollections();
+    fetchCatalogBadges();
   }, []);
 
   // Fetch contextual data based on current subview
@@ -45,6 +52,8 @@ export default function AdminPanel({ _user, onShowNotification, adminSubView, on
       fetchUsers();
     } else if (adminSubView === 'requests') {
       fetchVerificationRequests();
+    } else if (adminSubView === 'badges' || adminSubView === 'badge-catalog') {
+      fetchCatalogBadges();
     } else if (adminSubView === 'templates') {
       fetchTemplates();
     } else if (adminSubView === 'collections') {
@@ -156,6 +165,103 @@ export default function AdminPanel({ _user, onShowNotification, adminSubView, on
     }
   };
 
+  const fetchCatalogBadges = async () => {
+    setCatalogLoading(true);
+    try {
+      const res = await fetch('/api/admin/badge-catalog');
+      if (res.ok) {
+        const data = await res.json();
+        setCatalogBadges(data);
+      }
+    } catch (err) {
+      console.error("Failed to load catalog badges:", err);
+    } finally {
+      setCatalogLoading(false);
+    }
+  };
+
+  const handleToggleCatalogVisibility = async (id, title, currentHidden) => {
+    try {
+      const res = await fetch(`/api/admin/badge-catalog/${id}/toggle-visibility`, {
+        method: 'PATCH'
+      });
+      if (res.ok) {
+        onShowNotification(`Badge "${title}" is now ${currentHidden ? 'VISIBLE' : 'HIDDEN'} in directory.`);
+        fetchCatalogBadges();
+      } else {
+        onShowNotification("Failed to update visibility.");
+      }
+    } catch (err) {
+      console.error(err);
+      onShowNotification("Network error occurred.");
+    }
+  };
+
+  const handleDeleteCatalogBadge = async (id, title) => {
+    if (!window.confirm(`Are you sure you want to delete "${title}" from the Badge Directory?`)) return;
+    try {
+      const res = await fetch(`/api/admin/badge-catalog/${id}`, {
+        method: 'DELETE'
+      });
+      if (res.ok) {
+        onShowNotification(`Deleted badge "${title}".`);
+        fetchCatalogBadges();
+      } else {
+        onShowNotification("Failed to delete badge.");
+      }
+    } catch (err) {
+      console.error(err);
+      onShowNotification("Network error occurred.");
+    }
+  };
+
+  const handleSaveCatalogBadge = async (e) => {
+    e.preventDefault();
+    const form = e.target;
+    const badgeData = {
+      title: form.badgeTitle.value,
+      organization: form.badgeOrganization.value || "Microsoft Student Club PRPCEM",
+      release_date: form.badgeReleaseDate.value || "Jul 2026",
+      category: form.badgeCategory.value,
+      level: form.badgeLevel.value,
+      icon: form.badgeIcon.value || "fa-trophy",
+      earners_count: Number(form.badgeEarnersCount.value) || 0,
+      description: form.badgeDescription.value,
+      criteria: form.badgeCriteria.value,
+      skills_list: form.badgeSkills.value,
+      is_hidden: form.badgeIsHidden.checked ? 1 : 0
+    };
+
+    try {
+      let res;
+      if (editingCatalogBadge) {
+        res = await fetch(`/api/admin/badge-catalog/${editingCatalogBadge.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(badgeData)
+        });
+      } else {
+        res = await fetch('/api/admin/badge-catalog', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(badgeData)
+        });
+      }
+
+      if (res.ok) {
+        onShowNotification(editingCatalogBadge ? "Badge updated successfully." : "New catalog badge created.");
+        setEditingCatalogBadge(null);
+        setShowAddCatalogModal(false);
+        fetchCatalogBadges();
+      } else {
+        onShowNotification("Failed to save catalog badge.");
+      }
+    } catch (err) {
+      console.error(err);
+      onShowNotification("Network error occurred.");
+    }
+  };
+
 
   const handleRevoke = async (id) => {
     if (!window.confirm(`Are you sure you want to revoke and delete credential ${id}?`)) {
@@ -241,6 +347,46 @@ export default function AdminPanel({ _user, onShowNotification, adminSubView, on
   return (
     <div className="admin-container" style={{ padding: '24px 0', minHeight: '100vh', background: '#f8fafc' }} id="admin-panel-wrapper">
       
+      {/* Top Quick Sub-Navigation Bar */}
+      <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', paddingBottom: '16px', marginBottom: '20px', borderBottom: '1px solid #e2e8f0', paddingLeft: '4px' }}>
+        {[
+          { id: 'dashboard', label: 'Dashboard', icon: 'fa-house' },
+          { id: 'issue', label: 'Issue Credential', icon: 'fa-square-plus' },
+          { id: 'bulk', label: 'Bulk Upload', icon: 'fa-cloud-arrow-up' },
+          { id: 'credentials', label: 'Credentials', icon: 'fa-file-contract' },
+          { id: 'badges', label: 'Badge Catalog', icon: 'fa-award' },
+          { id: 'users', label: 'Users Directory', icon: 'fa-users' },
+          { id: 'requests', label: 'Requests', icon: 'fa-circle-check' },
+          { id: 'templates', label: 'Templates', icon: 'fa-pen-to-square' },
+          { id: 'reports', label: 'Reports', icon: 'fa-chart-pie' }
+        ].map(tab => (
+          <button
+            key={tab.id}
+            onClick={() => onNavigateToSubView(tab.id)}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '7px 14px',
+              borderRadius: '20px',
+              border: '1px solid',
+              borderColor: adminSubView === tab.id ? '#2563eb' : '#e2e8f0',
+              background: adminSubView === tab.id ? '#2563eb' : '#ffffff',
+              color: adminSubView === tab.id ? '#ffffff' : 'var(--text-main)',
+              fontSize: '12px',
+              fontWeight: 800,
+              cursor: 'pointer',
+              whiteSpace: 'nowrap',
+              boxShadow: adminSubView === tab.id ? '0 2px 6px rgba(37,99,235,0.25)' : 'none',
+              transition: 'all 0.15s ease'
+            }}
+          >
+            <i className={`fa-solid ${tab.icon}`} style={{ fontSize: '11px' }}></i>
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
       {adminSubView === 'dashboard' && (
         <AdminDashboard 
           credentials={credentials} 
@@ -339,7 +485,6 @@ export default function AdminPanel({ _user, onShowNotification, adminSubView, on
                   <tr style={{ borderBottom: '2px solid #f1f5f9', color: 'var(--text-muted)', fontWeight: 800 }}>
                     <th style={{ padding: '12px 8px' }}>User Details</th>
                     <th style={{ padding: '12px 8px' }}>System Role</th>
-                    <th style={{ padding: '12px 8px' }}>XP & Standing Level</th>
                     <th style={{ padding: '12px 8px', textAlign: 'center' }}>Certs / Badges</th>
                     <th style={{ padding: '12px 8px' }}>Joined At</th>
                     <th style={{ padding: '12px 8px', textAlign: 'right' }}>Actions</th>
@@ -374,14 +519,6 @@ export default function AdminPanel({ _user, onShowNotification, adminSubView, on
                         }}>
                           {user.role}
                         </span>
-                      </td>
-                      <td style={{ padding: '12px 8px' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                          <span style={{ fontWeight: 800, color: 'var(--text-main)' }}>{user.xp.toLocaleString()} XP</span>
-                          <span style={{ fontSize: '10.5px', background: '#e0f2fe', color: '#0369a1', padding: '2px 6px', borderRadius: '4px', fontWeight: 700 }}>
-                            {user.level}
-                          </span>
-                        </div>
                       </td>
                       <td style={{ padding: '12px 8px', textAlign: 'center' }}>
                         <div style={{ display: 'flex', justifyContent: 'center', gap: '8px' }}>
@@ -645,7 +782,327 @@ export default function AdminPanel({ _user, onShowNotification, adminSubView, on
         </div>
       )}
 
+      {/* 4b. Badge Directory Catalog Admin Management */}
+      {(adminSubView === 'badges' || adminSubView === 'badge-catalog') && (
+        <div className="admin-card" style={{ padding: '24px', background: 'white', border: '1px solid #e2e8f0', borderRadius: '16px', margin: '0 24px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '16px' }}>
+            <div>
+              <h2 style={{ fontSize: '18px', fontWeight: 800, margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <i className="fa-solid fa-award" style={{ color: 'var(--primary)' }}></i> Badge Directory Catalog Manager
+              </h2>
+              <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: '4px 0 0' }}>
+                Control all badges displayed in the public Badge Directory. Edit details, toggle visibility (hide/show from users), or add new badges.
+              </p>
+            </div>
 
+            <button 
+              onClick={() => { setEditingCatalogBadge(null); setShowAddCatalogModal(true); }}
+              style={{ padding: '8px 16px', borderRadius: '8px', background: 'var(--primary)', color: 'white', border: 'none', fontWeight: 800, fontSize: '12px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+            >
+              <i className="fa-solid fa-plus"></i> Add New Badge
+            </button>
+          </div>
+
+          {catalogLoading ? (
+            <div style={{ textAlign: 'center', padding: '40px' }}>
+              <i className="fa-solid fa-spinner fa-spin" style={{ fontSize: '24px', color: 'var(--primary)' }}></i>
+              <p style={{ fontSize: '12.5px', color: 'var(--text-muted)', marginTop: '8px' }}>Loading catalog items...</p>
+            </div>
+          ) : (
+            <div style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12.5px', textAlign: 'left' }}>
+                <thead>
+                  <tr style={{ borderBottom: '2px solid #f1f5f9', color: 'var(--text-muted)', fontWeight: 800 }}>
+                    <th style={{ padding: '12px 8px' }}>Badge Title</th>
+                    <th style={{ padding: '12px 8px' }}>Organization</th>
+                    <th style={{ padding: '12px 8px' }}>Release Date</th>
+                    <th style={{ padding: '12px 8px' }}>Category & Level</th>
+                    <th style={{ padding: '12px 8px' }}>Earners</th>
+                    <th style={{ padding: '12px 8px' }}>Visibility State</th>
+                    <th style={{ padding: '12px 8px', textAlign: 'right' }}>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {catalogBadges.map((badge) => {
+                    const isHidden = badge.is_hidden === 1;
+                    return (
+                      <tr key={badge.id} style={{ borderBottom: '1px solid #f1f5f9', opacity: isHidden ? 0.75 : 1 }}>
+                        <td style={{ padding: '12px 8px' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                            <div 
+                              style={{ 
+                                background: badge.gradient || "linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)", 
+                                color: 'white', 
+                                width: '32px', 
+                                height: '32px', 
+                                borderRadius: '8px', 
+                                display: 'flex', 
+                                justifyContent: 'center', 
+                                alignItems: 'center', 
+                                fontSize: '14px' 
+                              }}
+                            >
+                              <i className={`fa-solid ${badge.icon || badge.badge_icon || 'fa-award'}`}></i>
+                            </div>
+                            <div>
+                              <div style={{ fontWeight: 800, color: 'var(--text-main)' }}>{badge.title}</div>
+                              <div style={{ fontSize: '10px', color: 'var(--text-muted)', fontFamily: 'monospace' }}>{badge.badge_code || badge.id}</div>
+                            </div>
+                          </div>
+                        </td>
+                        <td style={{ padding: '12px 8px', color: 'var(--text-muted)', fontWeight: 600 }}>
+                          {badge.organization || "Microsoft Student Club PRPCEM"}
+                        </td>
+                        <td style={{ padding: '12px 8px', color: 'var(--text-muted)', fontSize: '11px', fontWeight: 600 }}>
+                          {badge.release_date || badge.issue_date || 'Jul 2026'}
+                        </td>
+                        <td style={{ padding: '12px 8px' }}>
+                          <span style={{ fontSize: '10px', background: '#f1f5f9', color: 'var(--text-main)', padding: '2px 8px', borderRadius: '4px', fontWeight: 700 }}>
+                            {badge.category} ({badge.level || 'Intermediate'})
+                          </span>
+                        </td>
+                        <td style={{ padding: '12px 8px', fontWeight: 800, color: '#2563eb' }}>
+                          {badge.earners_count !== undefined ? badge.earners_count : badge.earnersCount || 0}
+                        </td>
+                        <td style={{ padding: '12px 8px' }}>
+                          <span 
+                            style={{ 
+                              fontSize: '10px', 
+                              fontWeight: 800, 
+                              textTransform: 'uppercase', 
+                              padding: '3px 8px', 
+                              borderRadius: '12px',
+                              background: isHidden ? '#fee2e2' : '#d1fae5',
+                              color: isHidden ? '#991b1b' : '#065f46'
+                            }}
+                          >
+                            {isHidden ? '🚫 Hidden from Users' : '✅ Public / Visible'}
+                          </span>
+                        </td>
+                        <td style={{ padding: '12px 8px', textAlign: 'right' }}>
+                          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '6px' }}>
+                            <button 
+                              onClick={() => handleToggleCatalogVisibility(badge.id, badge.title, isHidden)}
+                              style={{ 
+                                padding: '4px 10px', 
+                                fontSize: '11px', 
+                                fontWeight: 700, 
+                                borderRadius: '6px', 
+                                background: isHidden ? '#ecfdf5' : '#fff7ed', 
+                                color: isHidden ? '#047857' : '#c2410c', 
+                                border: isHidden ? '1px solid #a7f3d0' : '1px solid #ffedd5',
+                                cursor: 'pointer' 
+                              }}
+                              title={isHidden ? "Make badge visible to users" : "Hide badge from public directory"}
+                            >
+                              <i className={`fa-solid ${isHidden ? 'fa-eye' : 'fa-eye-slash'}`}></i> {isHidden ? 'Show' : 'Hide'}
+                            </button>
+
+                            <button 
+                              onClick={() => { setEditingCatalogBadge(badge); setShowAddCatalogModal(true); }}
+                              style={{ padding: '4px 10px', fontSize: '11px', fontWeight: 700, borderRadius: '6px', background: '#eff6ff', color: '#1d4ed8', border: '1px solid #bfdbfe', cursor: 'pointer' }}
+                            >
+                              <i className="fa-solid fa-pen"></i> Edit
+                            </button>
+
+                            <button 
+                              onClick={() => handleDeleteCatalogBadge(badge.id, badge.title)}
+                              style={{ padding: '4px 10px', fontSize: '11px', fontWeight: 700, borderRadius: '6px', background: '#fef2f2', color: '#dc2626', border: '1px solid #fecaca', cursor: 'pointer' }}
+                            >
+                              <i className="fa-solid fa-trash-can"></i>
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                  {catalogBadges.length === 0 && (
+                    <tr>
+                      <td colSpan="7" style={{ padding: '36px', textAlign: 'center', color: 'var(--text-muted)' }}>
+                        No catalog badges defined. Click "Add New Badge" to create one.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ADD / EDIT CATALOG BADGE MODAL */}
+      {(showAddCatalogModal || editingCatalogBadge) && (
+        <div className="modal-overlay" style={{ zIndex: 1100 }} onClick={() => { setShowAddCatalogModal(false); setEditingCatalogBadge(null); }}>
+          <div className="modal-content" style={{ maxWidth: '560px', padding: '28px' }} onClick={e => e.stopPropagation()}>
+            <button className="modal-close-btn" onClick={() => { setShowAddCatalogModal(false); setEditingCatalogBadge(null); }}>
+              <i className="fa-solid fa-xmark"></i>
+            </button>
+
+            <h3 style={{ fontSize: '18px', fontWeight: 900, marginBottom: '4px', color: 'var(--text-main)' }}>
+              {editingCatalogBadge ? `Edit Badge: ${editingCatalogBadge.title}` : 'Add New Badge to Directory'}
+            </h3>
+            <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '20px' }}>
+              Configure badge details for the official Microsoft Student Club directory catalog.
+            </p>
+
+            <form onSubmit={handleSaveCatalogBadge} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                <div>
+                  <label style={{ fontSize: '11px', fontWeight: 800, color: 'var(--text-main)', display: 'block', marginBottom: '4px' }}>Badge Name (Title) *</label>
+                  <input 
+                    type="text" 
+                    name="badgeTitle" 
+                    defaultValue={editingCatalogBadge ? editingCatalogBadge.title : ''} 
+                    required 
+                    className="verify-input" 
+                    style={{ paddingLeft: '12px', fontSize: '12px' }} 
+                    placeholder="e.g. Azure Specialist"
+                  />
+                </div>
+                <div>
+                  <label style={{ fontSize: '11px', fontWeight: 800, color: 'var(--text-main)', display: 'block', marginBottom: '4px' }}>Issue Organization</label>
+                  <input 
+                    type="text" 
+                    name="badgeOrganization" 
+                    defaultValue={editingCatalogBadge ? (editingCatalogBadge.organization || 'Microsoft Student Club PRPCEM') : 'Microsoft Student Club PRPCEM'} 
+                    className="verify-input" 
+                    style={{ paddingLeft: '12px', fontSize: '12px' }} 
+                  />
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px' }}>
+                <div>
+                  <label style={{ fontSize: '11px', fontWeight: 800, color: 'var(--text-main)', display: 'block', marginBottom: '4px' }}>Release Date</label>
+                  <input 
+                    type="text" 
+                    name="badgeReleaseDate" 
+                    defaultValue={editingCatalogBadge ? (editingCatalogBadge.release_date || editingCatalogBadge.issue_date || 'Jul 2026') : 'Jul 2026'} 
+                    className="verify-input" 
+                    style={{ paddingLeft: '12px', fontSize: '12px' }} 
+                    placeholder="e.g. Jul 2026"
+                  />
+                </div>
+                <div>
+                  <label style={{ fontSize: '11px', fontWeight: 800, color: 'var(--text-main)', display: 'block', marginBottom: '4px' }}>Category *</label>
+                  <select 
+                    name="badgeCategory" 
+                    defaultValue={editingCatalogBadge ? editingCatalogBadge.category : 'Programming & Logic'} 
+                    className="verify-input" 
+                    style={{ paddingLeft: '10px', fontSize: '12px' }}
+                  >
+                    <option value="Programming & Logic">Programming & Logic</option>
+                    <option value="Cloud Infrastructure">Cloud Infrastructure</option>
+                    <option value="Artificial Intelligence">Artificial Intelligence</option>
+                    <option value="Leadership & Management">Leadership & Management</option>
+                    <option value="Community & Mentorship">Community & Mentorship</option>
+                  </select>
+                </div>
+                <div>
+                  <label style={{ fontSize: '11px', fontWeight: 800, color: 'var(--text-main)', display: 'block', marginBottom: '4px' }}>Difficulty Level</label>
+                  <select 
+                    name="badgeLevel" 
+                    defaultValue={editingCatalogBadge ? (editingCatalogBadge.level || 'Intermediate') : 'Intermediate'} 
+                    className="verify-input" 
+                    style={{ paddingLeft: '10px', fontSize: '12px' }}
+                  >
+                    <option value="Foundational">Foundational</option>
+                    <option value="Intermediate">Intermediate</option>
+                    <option value="Advanced">Advanced</option>
+                    <option value="Officer">Officer</option>
+                  </select>
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                <div>
+                  <label style={{ fontSize: '11px', fontWeight: 800, color: 'var(--text-main)', display: 'block', marginBottom: '4px' }}>Badge Icon (FontAwesome)</label>
+                  <input 
+                    type="text" 
+                    name="badgeIcon" 
+                    defaultValue={editingCatalogBadge ? (editingCatalogBadge.icon || editingCatalogBadge.badge_icon || 'fa-trophy') : 'fa-trophy'} 
+                    className="verify-input" 
+                    style={{ paddingLeft: '12px', fontSize: '12px' }} 
+                    placeholder="fa-trophy, fa-cloud, fa-brain"
+                  />
+                </div>
+                <div>
+                  <label style={{ fontSize: '11px', fontWeight: 800, color: 'var(--text-main)', display: 'block', marginBottom: '4px' }}>Earners Count Till Now</label>
+                  <input 
+                    type="number" 
+                    name="badgeEarnersCount" 
+                    defaultValue={editingCatalogBadge ? (editingCatalogBadge.earners_count !== undefined ? editingCatalogBadge.earners_count : editingCatalogBadge.earnersCount || 0) : 0} 
+                    className="verify-input" 
+                    style={{ paddingLeft: '12px', fontSize: '12px' }} 
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label style={{ fontSize: '11px', fontWeight: 800, color: 'var(--text-main)', display: 'block', marginBottom: '4px' }}>Description (Shown in Detail Modal)</label>
+                <textarea 
+                  name="badgeDescription" 
+                  defaultValue={editingCatalogBadge ? editingCatalogBadge.description : ''} 
+                  rows="2" 
+                  style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '12px', fontFamily: 'inherit' }}
+                  placeholder="Describe badge objectives..."
+                ></textarea>
+              </div>
+
+              <div>
+                <label style={{ fontSize: '11px', fontWeight: 800, color: 'var(--text-main)', display: 'block', marginBottom: '4px' }}>Eligibility & Earning Criteria (Shown in Detail Modal)</label>
+                <textarea 
+                  name="badgeCriteria" 
+                  defaultValue={editingCatalogBadge ? editingCatalogBadge.criteria : ''} 
+                  rows="2" 
+                  style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '12px', fontFamily: 'inherit' }}
+                  placeholder="Steps or score rules required to earn this badge..."
+                ></textarea>
+              </div>
+
+              <div>
+                <label style={{ fontSize: '11px', fontWeight: 800, color: 'var(--text-main)', display: 'block', marginBottom: '4px' }}>Evaluated Skills (Comma separated)</label>
+                <input 
+                  type="text" 
+                  name="badgeSkills" 
+                  defaultValue={editingCatalogBadge ? (typeof editingCatalogBadge.skills_list === 'string' ? editingCatalogBadge.skills_list : (editingCatalogBadge.skills || []).join(', ')) : ''} 
+                  className="verify-input" 
+                  style={{ paddingLeft: '12px', fontSize: '12px' }} 
+                  placeholder="e.g. Data Structures, Algorithms, Python"
+                />
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: '#f8fafc', padding: '10px 14px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                <input 
+                  type="checkbox" 
+                  id="badgeIsHidden" 
+                  name="badgeIsHidden" 
+                  defaultChecked={editingCatalogBadge ? editingCatalogBadge.is_hidden === 1 : false}
+                />
+                <label htmlFor="badgeIsHidden" style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-main)', cursor: 'pointer' }}>
+                  Hide this badge from the public Badge Directory (Admin view only)
+                </label>
+              </div>
+
+              <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
+                <button 
+                  type="button"
+                  onClick={() => { setShowAddCatalogModal(false); setEditingCatalogBadge(null); }}
+                  style={{ flexGrow: 1, padding: '10px 0', borderRadius: '8px', background: '#f1f5f9', color: 'var(--text-main)', border: '1px solid #cbd5e1', fontWeight: 700, fontSize: '12px', cursor: 'pointer' }}
+                >
+                  Cancel
+                </button>
+                <button 
+                  type="submit"
+                  style={{ flexGrow: 1, padding: '10px 0', borderRadius: '8px', background: 'var(--primary)', color: 'white', border: 'none', fontWeight: 800, fontSize: '12px', cursor: 'pointer' }}
+                >
+                  {editingCatalogBadge ? 'Save Changes' : 'Create Badge'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* 5. Badge & Cert Templates Workspace */}
       {adminSubView === 'templates' && (
@@ -1062,88 +1519,51 @@ export default function AdminPanel({ _user, onShowNotification, adminSubView, on
             </div>
 
             <div style={{ background: 'white', padding: '20px', border: '1px solid #e2e8f0', borderRadius: '16px', textAlign: 'left' }}>
-              <span style={{ fontSize: '11px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Mean XP standing</span>
+              <span style={{ fontSize: '11px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Total Registered Students</span>
               <div style={{ fontSize: '24px', fontWeight: 900, color: 'var(--text-main)', marginTop: '4px' }}>
-                {users.length ? Math.round(users.reduce((acc, curr) => acc + (curr.xp || 0), 0) / users.length) : 0} XP
+                {users.length} Active Members
               </div>
               <div style={{ fontSize: '10px', color: '#7c3aed', fontWeight: 700, marginTop: '4px' }}>
-                <i className="fa-solid fa-gem"></i> Average level: {users.length ? (users.reduce((acc, curr) => acc + (curr.level || 0), 0) / users.length).toFixed(1) : 1}
+                <i className="fa-solid fa-user-check"></i> Chapter Roster Active
               </div>
             </div>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1.5fr', gap: '24px' }}>
+          <div style={{ background: 'white', padding: '24px', border: '1px solid #e2e8f0', borderRadius: '16px', textAlign: 'left' }}>
             {/* Category distribution horizontal list chart */}
-            <div style={{ background: 'white', padding: '24px', border: '1px solid #e2e8f0', borderRadius: '16px', textAlign: 'left' }}>
-              <h3 style={{ fontSize: '14px', fontWeight: 800, margin: '0 0 16px 0' }}>Credentials Issued by Category</h3>
-              
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-                {(() => {
-                  const categories = {};
-                  credentials.forEach(c => {
-                    const cat = c.category || 'General';
-                    categories[cat] = (categories[cat] || 0) + 1;
-                  });
-                  const total = credentials.length || 1;
-                  const sorted = Object.entries(categories).sort((a,b) => b[1] - a[1]);
-                  
-                  return sorted.map(([cat, count], index) => {
-                    const percentage = Math.round((count / total) * 100);
-                    const colorArr = ['#3b82f6', '#10b981', '#7c3aed', '#f59e0b', '#ec4899'];
-                    const barColor = colorArr[index % colorArr.length];
+            <h3 style={{ fontSize: '14px', fontWeight: 800, margin: '0 0 16px 0' }}>Credentials Issued by Category</h3>
+            
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              {(() => {
+                const categories = {};
+                credentials.forEach(c => {
+                  const cat = c.category || 'General';
+                  categories[cat] = (categories[cat] || 0) + 1;
+                });
+                const total = credentials.length || 1;
+                const sorted = Object.entries(categories).sort((a,b) => b[1] - a[1]);
+                
+                return sorted.map(([cat, count], index) => {
+                  const percentage = Math.round((count / total) * 100);
+                  const colorArr = ['#3b82f6', '#10b981', '#7c3aed', '#f59e0b', '#ec4899'];
+                  const barColor = colorArr[index % colorArr.length];
 
-                    return (
-                      <div key={cat}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11.5px', fontWeight: 800, marginBottom: '4px' }}>
-                          <span style={{ color: 'var(--text-main)' }}>{cat}</span>
-                          <span style={{ color: 'var(--text-muted)' }}>{count} ({percentage}%)</span>
-                        </div>
-                        <div style={{ width: '100%', height: '8px', background: '#f1f5f9', borderRadius: '4px', overflow: 'hidden' }}>
-                          <div style={{ width: `${percentage}%`, height: '100%', background: barColor, borderRadius: '4px' }}></div>
-                        </div>
+                  return (
+                    <div key={cat}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11.5px', fontWeight: 800, marginBottom: '4px' }}>
+                        <span style={{ color: 'var(--text-main)' }}>{cat}</span>
+                        <span style={{ color: 'var(--text-muted)' }}>{count} ({percentage}%)</span>
                       </div>
-                    );
-                  });
-                })()}
-                {credentials.length === 0 && (
-                  <div style={{ textAlign: 'center', padding: '20px', color: 'var(--text-muted)', fontSize: '11px' }}>No category metrics to display.</div>
-                )}
-              </div>
-            </div>
-
-            {/* High XP student standouts leaderboard */}
-            <div style={{ background: 'white', padding: '24px', border: '1px solid #e2e8f0', borderRadius: '16px', textAlign: 'left' }}>
-              <h3 style={{ fontSize: '14px', fontWeight: 800, margin: '0 0 16px 0' }}>Chapter Academic Leaderboard</h3>
-              
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                {users
-                  .slice()
-                  .sort((a, b) => (b.xp || 0) - (a.xp || 0))
-                  .slice(0, 5)
-                  .map((u, index) => {
-                    const medalColors = ['#eab308', '#94a3b8', '#b45309', '#3b82f6', '#10b981'];
-                    return (
-                      <div key={u.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#f8fafc', padding: '10px 14px', borderRadius: '10px', border: '1px solid #f1f5f9' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                          <span style={{ width: '22px', height: '22px', borderRadius: '50%', background: index < 3 ? medalColors[index] : '#e2e8f0', color: index < 3 ? 'white' : '#64748b', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', fontWeight: 900 }}>
-                            {index + 1}
-                          </span>
-                          <div>
-                            <div style={{ fontSize: '12px', fontWeight: 900, color: 'var(--text-main)' }}>{u.name}</div>
-                            <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>{u.email}</div>
-                          </div>
-                        </div>
-                        <div style={{ textAlign: 'right' }}>
-                          <div style={{ fontSize: '12.5px', fontWeight: 900, color: 'var(--primary)' }}>{u.xp || 0} XP</div>
-                          <div style={{ fontSize: '9px', background: '#eff6ff', color: '#1e40af', padding: '1px 5px', borderRadius: '6px', fontWeight: 800, display: 'inline-block' }}>Lvl {u.level || 1}</div>
-                        </div>
+                      <div style={{ width: '100%', height: '8px', background: '#f1f5f9', borderRadius: '4px', overflow: 'hidden' }}>
+                        <div style={{ width: `${percentage}%`, height: '100%', background: barColor, borderRadius: '4px' }}></div>
                       </div>
-                    );
-                  })}
-                {users.length === 0 && (
-                  <div style={{ textAlign: 'center', padding: '20px', color: 'var(--text-muted)' }}>No student records logged.</div>
-                )}
-              </div>
+                    </div>
+                  );
+                });
+              })()}
+              {credentials.length === 0 && (
+                <div style={{ textAlign: 'center', padding: '20px', color: 'var(--text-muted)', fontSize: '11px' }}>No category metrics to display.</div>
+              )}
             </div>
           </div>
         </div>
@@ -1218,7 +1638,7 @@ export default function AdminPanel({ _user, onShowNotification, adminSubView, on
                 </div>
                 <h4 style={{ margin: 0, fontSize: '13px', fontWeight: 900 }}>Chapter Student Roster</h4>
                 <p style={{ fontSize: '11px', color: 'var(--text-muted)', margin: '6px 0 16px 0', lineHeight: '1.4' }}>
-                  Detailed roster of active students on the platform, including current levels, total XP, profile biographies, and social links.
+                  Detailed roster of active students on the platform, including profile biographies and social links.
                 </p>
               </div>
               <button 
@@ -1227,15 +1647,13 @@ export default function AdminPanel({ _user, onShowNotification, adminSubView, on
                     onShowNotification("No student rosters to export.");
                     return;
                   }
-                  const headers = ["User ID", "Name", "Email Address", "Role", "Biography", "XP", "Level", "LinkedIn URL", "Github URL"];
+                  const headers = ["User ID", "Name", "Email Address", "Role", "Biography", "LinkedIn URL", "Github URL"];
                   const rows = users.map(u => [
                     u.id,
                     `"${u.name.replace(/"/g, '""')}"`,
                     u.email,
                     u.role,
                     `"${(u.bio || '').replace(/"/g, '""')}"`,
-                    u.xp || 0,
-                    u.level || 1,
                     u.linkedin_url || '',
                     u.github_url || ''
                   ]);

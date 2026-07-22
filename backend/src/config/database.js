@@ -31,14 +31,7 @@ const dbGet = (query, params = []) => {
   });
 };
 
-// Convert XP to Level title
-function calculateLevel(xp) {
-  if (xp >= 5000) return "Ambassador";
-  if (xp >= 2500) return "Expert";
-  if (xp >= 1200) return "Innovator";
-  if (xp >= 500) return "Contributor";
-  return "Explorer";
-}
+// Convert XP function removed as requested
 
 // Seeding helpers
 function getNameValue(item) {
@@ -92,6 +85,7 @@ async function initDatabase() {
     CREATE TABLE IF NOT EXISTS users (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       name TEXT NOT NULL,
+      username TEXT UNIQUE,
       email TEXT UNIQUE NOT NULL,
       password_hash TEXT,
       role TEXT DEFAULT 'student',
@@ -106,6 +100,13 @@ async function initDatabase() {
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )
   `);
+
+  // Migrate existing table if username column is missing
+  try {
+    await dbRun("ALTER TABLE users ADD COLUMN username TEXT");
+  } catch (err) {
+    // Column already exists
+  }
 
   // 2. Create Credentials Table
   await dbRun(`
@@ -207,6 +208,30 @@ async function initDatabase() {
     )
   `);
 
+  // 4a2. Create Badge Catalog Directory Table
+  await dbRun(`
+    CREATE TABLE IF NOT EXISTS badge_catalog (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      badge_code TEXT,
+      title TEXT NOT NULL,
+      organization TEXT DEFAULT 'Microsoft Student Club PRPCEM',
+      release_date TEXT DEFAULT 'Jul 2026',
+      category TEXT NOT NULL,
+      level TEXT DEFAULT 'Intermediate',
+      icon TEXT DEFAULT 'fa-trophy',
+      gradient TEXT DEFAULT 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+      bg_light TEXT DEFAULT '#ecfdf5',
+      accent_color TEXT DEFAULT '#059669',
+      description TEXT,
+      criteria TEXT,
+      skills_list TEXT DEFAULT '',
+      earners_count INTEGER DEFAULT 0,
+      issuance_frequency TEXT DEFAULT 'Weekly',
+      is_hidden INTEGER DEFAULT 0,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+
   // 4b. Create Collections/Pathways Table
   await dbRun(`
     CREATE TABLE IF NOT EXISTS collections (
@@ -228,9 +253,9 @@ async function initDatabase() {
 
     // Admin account
     await dbRun(
-      `INSERT INTO users (name, email, password_hash, role, bio, headline, xp, level) 
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-      ["MSC Club Admin", "admin@mscprpcem.tech", adminHash, "admin", "MSC PRPCEM Administrator", "Chapter Advisor", 5000, "Ambassador"]
+      `INSERT INTO users (name, username, email, password_hash, role, bio, headline, xp, level) 
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      ["MSC Club Admin", "admin", "admin@mscprpcem.tech", adminHash, "admin", "MSC PRPCEM Administrator", "Chapter Advisor", 5000, "Ambassador"]
     );
 
     // Student account (Amit Kumar Yadav)
@@ -242,10 +267,11 @@ async function initDatabase() {
     });
     
     await dbRun(
-      `INSERT INTO users (name, email, password_hash, role, bio, headline, profile_photo, linkedin_url, github_url, skills, xp, level) 
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO users (name, username, email, password_hash, role, bio, headline, profile_photo, linkedin_url, github_url, skills, xp, level) 
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         "Amit Kumar Yadav", 
+        "amityadav",
         "student@mscprpcem.tech", 
         studentHash, 
         "student", 
@@ -261,6 +287,15 @@ async function initDatabase() {
     );
 
     console.log("Seeding users completed successfully.");
+  }
+
+  // Populate username for any existing users without a username
+  try {
+    await dbRun("UPDATE users SET username = LOWER(REPLACE(name, ' ', '')) WHERE username IS NULL OR username = ''");
+    await dbRun("UPDATE users SET username = 'amityadav' WHERE LOWER(email) = 'student@mscprpcem.tech'");
+    await dbRun("UPDATE users SET username = 'admin' WHERE LOWER(email) = 'admin@mscprpcem.tech'");
+  } catch (err) {
+    // Ignore migration updates
   }
 
   // 6. Seed Credentials from Sheet APIs
@@ -508,8 +543,183 @@ async function initDatabase() {
           [col.name, col.description, col.badges]
         );
       }
+    // Seed Badge Catalog Directory
+    const catalogCount = await dbGet("SELECT COUNT(*) as count FROM badge_catalog");
+    if (catalogCount.count === 0) {
+      const defaultBadges = [
+        {
+          badge_code: "MSC-BDG-QM",
+          title: "Quiz Master Badge",
+          organization: "Microsoft Student Club PRPCEM",
+          release_date: "Jul 2026",
+          category: "Programming & Logic",
+          level: "Intermediate",
+          icon: "fa-trophy",
+          gradient: "linear-gradient(135deg, #10b981 0%, #059669 100%)",
+          bg_light: "#ecfdf5",
+          accent_color: "#059669",
+          description: "Mastery of data structures, core algorithms, and rapid technical problem-solving challenges.",
+          criteria: "Score 90% or higher in any weekly programming quiz hosted by MSC PRPCEM.",
+          skills_list: "Data Structures, Algorithms, Python/C++, Competitive Coding",
+          earners_count: 48,
+          issuance_frequency: "Weekly",
+          is_hidden: 0
+        },
+        {
+          badge_code: "MSC-BDG-AZ",
+          title: "Microsoft Azure Specialist",
+          organization: "Microsoft Student Club PRPCEM",
+          release_date: "Jul 2026",
+          category: "Cloud Infrastructure",
+          level: "Advanced",
+          icon: "fa-cloud",
+          gradient: "linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)",
+          bg_light: "#eff6ff",
+          accent_color: "#2563eb",
+          description: "Hands-on expertise in Microsoft Azure cloud resource deployment, virtual networks, and cloud architecture.",
+          criteria: "Complete all hands-on deployment labs in the Azure Cloud Workshop and pass the practical exam.",
+          skills_list: "Azure Portal, Virtual Machines, Cloud Security, App Services",
+          earners_count: 34,
+          issuance_frequency: "Per Event",
+          is_hidden: 0
+        },
+        {
+          badge_code: "MSC-BDG-AI",
+          title: "AI Workshop Specialist",
+          organization: "Microsoft Student Club PRPCEM",
+          release_date: "Jul 2026",
+          category: "Artificial Intelligence",
+          level: "Advanced",
+          icon: "fa-brain",
+          gradient: "linear-gradient(135deg, #8b5cf6 0%, #6d28d9 100%)",
+          bg_light: "#f5f3ff",
+          accent_color: "#7c3aed",
+          description: "Practical implementation of machine learning models, OpenAI APIs, and generative AI workflow integration.",
+          criteria: "Attend the hands-on AI Workshop, build an interactive prototype, and submit a verified working project.",
+          skills_list: "Generative AI, LLM APIs, Python AI, Prompt Engineering",
+          earners_count: 29,
+          issuance_frequency: "Per Event",
+          is_hidden: 0
+        },
+        {
+          badge_code: "MSC-BDG-CE",
+          title: "Cloud Explorer Badge",
+          organization: "Microsoft Student Club PRPCEM",
+          release_date: "Jun 2026",
+          category: "Cloud Infrastructure",
+          level: "Foundational",
+          icon: "fa-cloud-meatball",
+          gradient: "linear-gradient(135deg, #0284c7 0%, #0369a1 100%)",
+          bg_light: "#f0f9ff",
+          accent_color: "#0284c7",
+          description: "Fundamental concepts of cloud computing, storage accounts, serverless functions, and basic Azure operations.",
+          criteria: "Complete the introductory cloud orientation and lab submission module.",
+          skills_list: "Cloud Basics, Blob Storage, Azure CLI, Git Basics",
+          earners_count: 62,
+          issuance_frequency: "Monthly",
+          is_hidden: 0
+        },
+        {
+          badge_code: "MSC-BDG-CTL",
+          title: "MSC Core Team Lead",
+          organization: "Microsoft Student Club PRPCEM",
+          release_date: "May 2026",
+          category: "Leadership & Management",
+          level: "Officer",
+          icon: "fa-shield-halved",
+          gradient: "linear-gradient(135deg, #d97706 0%, #b45309 100%)",
+          bg_light: "#fffbeb",
+          accent_color: "#d97706",
+          description: "Leadership, event management, and chapter operational governance of Microsoft Student Club PRPCEM.",
+          criteria: "Appointed as an official executive officer or core lead for a full academic tenure.",
+          skills_list: "Leadership, Project Planning, Team Governance, Public Relations",
+          earners_count: 12,
+          issuance_frequency: "Annual",
+          is_hidden: 0
+        },
+        {
+          badge_code: "MSC-BDG-VA",
+          title: "Volunteer Advocate",
+          organization: "Microsoft Student Club PRPCEM",
+          release_date: "Apr 2026",
+          category: "Community & Mentorship",
+          level: "Foundational",
+          icon: "fa-handshake-angle",
+          gradient: "linear-gradient(135deg, #ec4899 0%, #be185d 100%)",
+          bg_light: "#fdf2f8",
+          accent_color: "#db2777",
+          description: "Operational support, logistics coordination, and student onboarding during official MSC workshops and hackathons.",
+          criteria: "Serve actively as a volunteer organizer in at least 3 official chapter events.",
+          skills_list: "Event Operations, Peer Support, Logistics, Community Building",
+          earners_count: 45,
+          issuance_frequency: "Semester",
+          is_hidden: 0
+        },
+        {
+          badge_code: "MSC-BDG-CS",
+          title: "Community Speaker",
+          organization: "Microsoft Student Club PRPCEM",
+          release_date: "Mar 2026",
+          category: "Community & Mentorship",
+          level: "Intermediate",
+          icon: "fa-microphone",
+          gradient: "linear-gradient(135deg, #06b6d4 0%, #0e7490 100%)",
+          bg_light: "#ecfeff",
+          accent_color: "#0891b2",
+          description: "Delivery of technical presentations, tech talks, or peer tutoring sessions at student chapter meetups.",
+          criteria: "Lead a tech talk, workshop session, or seminar at an official MSC PRPCEM event.",
+          skills_list: "Public Speaking, Technical Teaching, Presentation, Mentorship",
+          earners_count: 19,
+          issuance_frequency: "Per Event",
+          is_hidden: 0
+        },
+        {
+          badge_code: "MSC-BDG-DV",
+          title: "DevOps & Version Control Champion",
+          organization: "Microsoft Student Club PRPCEM",
+          release_date: "Feb 2026",
+          category: "Programming & Logic",
+          level: "Intermediate",
+          icon: "fa-code-branch",
+          gradient: "linear-gradient(135deg, #6366f1 0%, #4338ca 100%)",
+          bg_light: "#eef2ff",
+          accent_color: "#4f46e5",
+          description: "Mastery of Git workflows, GitHub Actions CI/CD automation, pull requests, and collaborative repository management.",
+          criteria: "Complete the GitHub DevOps bootcamp and configure a working CI/CD workflow pipeline.",
+          skills_list: "Git & GitHub, CI/CD Pipelines, Code Review, DevOps",
+          earners_count: 31,
+          issuance_frequency: "Per Event",
+          is_hidden: 0
+        }
+      ];
+
+      for (const b of defaultBadges) {
+        await dbRun(
+          `INSERT INTO badge_catalog (badge_code, title, organization, release_date, category, level, icon, gradient, bg_light, accent_color, description, criteria, skills_list, earners_count, issuance_frequency, is_hidden)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          [
+            b.badge_code,
+            b.title,
+            b.organization,
+            b.release_date,
+            b.category,
+            b.level,
+            b.icon,
+            b.gradient,
+            b.bg_light,
+            b.accent_color,
+            b.description,
+            b.criteria,
+            b.skills_list,
+            b.earners_count,
+            b.issuance_frequency,
+            b.is_hidden
+          ]
+        );
+      }
     }
   }
+}
 
   console.log("Database initialized successfully!");
 }
@@ -519,6 +729,5 @@ module.exports = {
   dbRun,
   dbAll,
   dbGet,
-  calculateLevel,
   initDatabase
 };

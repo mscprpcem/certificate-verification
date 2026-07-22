@@ -2,13 +2,13 @@ const profileRepository = require("../repositories/profile.repository");
 
 class ProfileController {
   async updateProfile(req, res, next) {
-    const { bio, headline, linkedin_url, github_url, skills } = req.body;
+    const { name, bio, headline, profile_photo, linkedin_url, github_url, skills } = req.body;
     const userId = req.session.userId;
 
     try {
       const skillsJson = typeof skills === "object" ? JSON.stringify(skills) : skills;
-      await profileRepository.updateProfile(userId, bio, headline, linkedin_url, github_url, skillsJson || "{}");
-      await profileRepository.createActivityLog(userId, "Updated profile bio & links");
+      await profileRepository.updateProfile(userId, name, bio, headline, profile_photo, linkedin_url, github_url, skillsJson || "{}");
+      await profileRepository.createActivityLog(userId, "Updated profile details & avatar");
       res.json({ message: "Profile details updated successfully." });
     } catch (err) {
       next(err);
