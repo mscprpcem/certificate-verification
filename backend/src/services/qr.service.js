@@ -1,6 +1,9 @@
+const env = require("../config/env");
+
 class QRService {
   generateVerificationUrl(credentialId) {
-    return `http://localhost:5173/?verifyId=${credentialId}`;
+    const baseUrl = env.FRONTEND_URL || 'http://localhost:5173';
+    return `${baseUrl}/?verifyId=${credentialId}`;
   }
 }
 

@@ -1,7 +1,9 @@
 const profileRepository = require("../repositories/profile.repository");
+const env = require("../config/env");
 
 class EmailService {
   async sendQuizBadgeEmail(name, email, title, score, dateStr, credId) {
+    const baseUrl = env.FRONTEND_URL || 'http://localhost:5173';
     const subject = `🎉 You've earned a new Microsoft Student Club Badge`;
     const body = `
 Congratulations, ${name}!
@@ -15,7 +17,7 @@ Score: ${score}%
 Issued: ${dateStr}
 
 -------------------------------------------------
-[ View Badge ] -> http://localhost:5173/credential/${credId}
+[ View Badge ] -> ${baseUrl}/credential/${credId}
 [ Share ]
 -------------------------------------------------
     `;
@@ -24,6 +26,7 @@ Issued: ${dateStr}
   }
 
   async sendIssueEmail(name, email, title, type, customId, issue_date) {
+    const baseUrl = env.FRONTEND_URL || 'http://localhost:5173';
     const subject = `🎉 New Credential Issued: ${title}`;
     const body = `
 Hello ${name},
@@ -36,7 +39,7 @@ ID: ${customId}
 Date: ${issue_date}
 
 -------------------------------------------------
-[ View Credential ] -> http://localhost:5173/?verifyId=${customId}
+[ View Credential ] -> ${baseUrl}/?verifyId=${customId}
 -------------------------------------------------
     `;
 

@@ -67,7 +67,7 @@ export default function PublicProfile({ username, onShowNotification }) {
         </div>
         <h3 style={{ fontSize: '16px', fontWeight: 800, margin: '0 0 6px 0', color: '#991b1b' }}>Profile Not Found</h3>
         <p style={{ fontSize: '12.5px', color: 'var(--text-muted)', margin: '0 0 16px 0' }}>{error}</p>
-        <p style={{ fontSize: '11.5px', color: 'var(--text-muted)' }}>Check if the username URL is spelled correctly (e.g. <code>http://localhost:5173/u/amityadav</code>).</p>
+        <p style={{ fontSize: '11.5px', color: 'var(--text-muted)' }}>Check if the username URL is spelled correctly (e.g. <code>{window.location.origin}/u/amityadav</code>).</p>
       </div>
     );
   }

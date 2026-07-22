@@ -322,7 +322,7 @@ export default function Settings({ user, onShowNotification, onProfileUpdate }) 
                     <i className="fa-solid fa-link" style={{ color: '#2563eb' }}></i> Public Portfolio URL
                   </div>
                   <div style={{ fontSize: '13px', fontWeight: 800, color: '#2563eb' }}>
-                    http://localhost:5173/u/{name ? name.toLowerCase().replace(/\s+/g, '') : 'username'}
+                    {`${window.location.origin}/u/${name ? name.toLowerCase().replace(/\s+/g, '') : 'username'}`}
                   </div>
                 </div>
 
