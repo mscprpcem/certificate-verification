@@ -1,36 +1,27 @@
 const bcrypt = require("bcryptjs");
-const {
-  User,
-  Credential,
-  Event,
-  Participant,
-  BadgeCatalog,
-  BadgeTemplate,
-  Collection,
-  ActivityLog,
-  VerificationRequest,
-  VerificationLog
-} = require("../models");
+const prisma = require("./database");
 
 async function seedInitialData() {
   try {
     // 1. Seed Users
-    const userCount = await User.count();
+    const userCount = await prisma.user.count();
     if (userCount === 0) {
-      console.log("Seeding default PostgreSQL users...");
+      console.log("Seeding default PostgreSQL users via Prisma...");
       const adminHash = await bcrypt.hash("admin123", 10);
       const studentHash = await bcrypt.hash("password123", 10);
 
-      await User.create({
-        name: "MSC Club Admin",
-        username: "admin",
-        email: "admin@mscprpcem.tech",
-        password_hash: adminHash,
-        role: "admin",
-        bio: "MSC PRPCEM Administrator",
-        headline: "Chapter Advisor",
-        xp: 5000,
-        level: "Ambassador"
+      await prisma.user.create({
+        data: {
+          name: "MSC Club Admin",
+          username: "admin",
+          email: "admin@mscprpcem.tech",
+          password_hash: adminHash,
+          role: "admin",
+          bio: "MSC PRPCEM Administrator",
+          headline: "Chapter Advisor",
+          xp: 5000,
+          level: "Ambassador"
+        }
       });
 
       const amitSkills = JSON.stringify({
@@ -40,65 +31,75 @@ async function seedInitialData() {
         "Leadership": 5
       });
 
-      await User.create({
-        name: "Amit Kumar Yadav",
-        username: "amityadav",
-        email: "student@mscprpcem.tech",
-        password_hash: studentHash,
-        role: "student",
-        bio: "Passionate student developer studying computer science. Cloud Enthusiast and Microsoft technologies builder.",
-        headline: "Cloud Enthusiast",
-        profile_photo: "/assets/MSC_logo.png",
-        linkedin_url: "https://linkedin.com/in/amityadav",
-        github_url: "https://github.com/amityadav",
-        skills: amitSkills,
-        xp: 1840,
-        level: "Innovator"
+      await prisma.user.create({
+        data: {
+          name: "Amit Kumar Yadav",
+          username: "amityadav",
+          email: "student@mscprpcem.tech",
+          password_hash: studentHash,
+          role: "student",
+          bio: "Passionate student developer studying computer science. Cloud Enthusiast and Microsoft technologies builder.",
+          headline: "Cloud Enthusiast",
+          profile_photo: "/assets/MSC_logo.png",
+          linkedin_url: "https://linkedin.com/in/amityadav",
+          github_url: "https://github.com/amityadav",
+          skills: amitSkills,
+          xp: 1840,
+          level: "Innovator"
+        }
       });
 
       console.log("Users seeded successfully.");
     }
 
     // 2. Seed Events & Participants
-    const eventCount = await Event.count();
+    const eventCount = await prisma.event.count();
     if (eventCount === 0) {
-      console.log("Seeding default events...");
-      const evt1 = await Event.create({
-        title: "Copilot Dev Days",
-        category: "Event",
-        date: "10 July 2026",
-        description: "Successfully completed the club program event Copilot Dev Days with excellence."
+      console.log("Seeding default events via Prisma...");
+      const evt1 = await prisma.event.create({
+        data: {
+          title: "Copilot Dev Days",
+          category: "Event",
+          date: "10 July 2026",
+          description: "Successfully completed the club program event Copilot Dev Days with excellence."
+        }
       });
 
-      const evt2 = await Event.create({
-        title: "GitLit — The Diwali Code Fest",
-        category: "Event",
-        date: "10 November 2025",
-        description: "Verified participant in the GitLit — The Diwali Code Fest during the academic year 2025."
+      const evt2 = await prisma.event.create({
+        data: {
+          title: "GitLit — The Diwali Code Fest",
+          category: "Event",
+          date: "10 November 2025",
+          description: "Verified participant in the GitLit — The Diwali Code Fest during the academic year 2025."
+        }
       });
 
-      await Participant.create({
-        event_id: evt1.id,
-        name: "Amit Kumar Yadav",
-        email: "student@mscprpcem.tech",
-        role: "Attendee",
-        status: "Completed"
+      await prisma.participant.create({
+        data: {
+          event_id: evt1.id,
+          name: "Amit Kumar Yadav",
+          email: "student@mscprpcem.tech",
+          role: "Attendee",
+          status: "Completed"
+        }
       });
 
-      await Participant.create({
-        event_id: evt2.id,
-        name: "Amit Kumar Yadav",
-        email: "student@mscprpcem.tech",
-        role: "Attendee",
-        status: "Completed"
+      await prisma.participant.create({
+        data: {
+          event_id: evt2.id,
+          name: "Amit Kumar Yadav",
+          email: "student@mscprpcem.tech",
+          role: "Attendee",
+          status: "Completed"
+        }
       });
     }
 
     // 3. Seed Credentials
-    const credCount = await Credential.count();
+    const credCount = await prisma.credential.count();
     if (credCount === 0) {
-      console.log("Seeding default credentials...");
-      const student = await User.findOne({ where: { email: "student@mscprpcem.tech" } });
+      console.log("Seeding default credentials via Prisma...");
+      const student = await prisma.user.findUnique({ where: { email: "student@mscprpcem.tech" } });
       const studentId = student ? student.id : null;
 
       const defaultCreds = [
@@ -158,18 +159,19 @@ async function seedInitialData() {
       ];
 
       for (const c of defaultCreds) {
-        await Credential.findOrCreate({
+        await prisma.credential.upsert({
           where: { id: c.id },
-          defaults: c
+          update: {},
+          create: c
         });
       }
       console.log("Credentials seeded successfully.");
     }
 
     // 4. Seed Badge Catalog Directory
-    const catalogCount = await BadgeCatalog.count();
+    const catalogCount = await prisma.badgeCatalog.count();
     if (catalogCount === 0) {
-      console.log("Seeding default badge catalog...");
+      console.log("Seeding default badge catalog via Prisma...");
       const defaultBadges = [
         {
           badge_code: "MSC-BDG-QM",
@@ -222,11 +224,11 @@ async function seedInitialData() {
       ];
 
       for (const b of defaultBadges) {
-        await BadgeCatalog.create(b);
+        await prisma.badgeCatalog.create({ data: b });
       }
     }
   } catch (err) {
-    console.error("Seeding warning:", err.message);
+    console.warn("Seeding warning:", err.message);
   }
 }
 

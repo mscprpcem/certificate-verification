@@ -1,0 +1,195 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            Int           @id @default(autoincrement())
+  name          String
+  username      String?       @unique
+  email         String        @unique
+  password_hash String?
+  role          String        @default("student")
+  bio           String?       @default("Microsoft Student Club Member")
+  headline      String?       @default("Student Developer")
+  profile_photo String?       @default("")
+  linkedin_url  String?       @default("")
+  github_url    String?       @default("")
+  skills        String?       @default("{}")
+  xp            Int           @default(0)
+  level         String        @default("Explorer")
+  created_at    DateTime      @default(now())
+
+  credentials   Credential[]
+  activity_logs ActivityLog[]
+
+  @@map("users")
+}
+
+model Credential {
+  id              String   @id // e.g. "MSC-EVT-2026-00101"
+  recipient_name  String
+  recipient_email String
+  user_id         Int?
+  user            User?    @relation(fields: [user_id], references: [id], onDelete: SetNull)
+  type            String   // "certificate" or "badge"
+  title           String
+  category        String
+  domain          String?
+  issue_date      String
+  description     String?
+  badge_icon      String?
+  skills_list     String?  @default("")
+  score           Int?
+  template_url    String?  // Azure Blob Storage URL
+  created_at      DateTime @default(now())
+
+  @@map("credentials")
+}
+
+model Event {
+  id           Int           @id @default(autoincrement())
+  title        String
+  category     String        @default("Event")
+  date         String?
+  description  String?
+  created_at   DateTime      @default(now())
+
+  participants Participant[]
+
+  @@map("events")
+}
+
+model Participant {
+  id         Int      @id @default(autoincrement())
+  event_id   Int?
+  event      Event?   @relation(fields: [event_id], references: [id], onDelete: Cascade)
+  name       String
+  email      String
+  role       String   @default("Attendee")
+  status     String   @default("Completed")
+  created_at DateTime @default(now())
+
+  @@map("participants")
+}
+
+model CertificateTemplate {
+  id           Int      @id @default(autoincrement())
+  name         String
+  template_url String   // Azure Blob Storage URL
+  category     String   @default("Event")
+  is_default   Boolean  @default(true)
+  created_at   DateTime @default(now())
+
+  @@map("certificate_templates")
+}
+
+model BadgeTemplate {
+  id          Int      @id @default(autoincrement())
+  title       String
+  type        String
+  category    String
+  description String?
+  badge_icon  String?  @default("fa-award")
+  skills_list String?  @default("")
+  created_at  DateTime @default(now())
+
+  @@map("badge_templates")
+}
+
+model BadgeCatalog {
+  id                 Int      @id @default(autoincrement())
+  badge_code         String?
+  title              String
+  organization       String   @default("Microsoft Student Club PRPCEM")
+  release_date       String   @default("Jul 2026")
+  category           String
+  level              String   @default("Intermediate")
+  icon               String   @default("fa-trophy")
+  gradient           String   @default("linear-gradient(135deg, #10b981 0%, #059669 100%)")
+  bg_light           String   @default("#ecfdf5")
+  accent_color       String   @default("#059669")
+  description        String?
+  criteria           String?
+  skills_list        String?  @default("")
+  earners_count      Int      @default(0)
+  issuance_frequency String   @default("Weekly")
+  is_hidden          Int      @default(0)
+  created_at         DateTime @default(now())
+
+  @@map("badge_catalog")
+}
+
+model Collection {
+  id          Int      @id @default(autoincrement())
+  name        String
+  description String?
+  badge_ids   String?
+  created_at  DateTime @default(now())
+
+  @@map("collections")
+}
+
+model ActivityLog {
+  id        Int      @id @default(autoincrement())
+  user_id   Int
+  user      User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  action    String
+  timestamp DateTime @default(now())
+
+  @@map("activity_logs")
+}
+
+model VerificationRequest {
+  id              Int       @id @default(autoincrement())
+  student_name    String
+  student_email   String
+  credential_type String
+  title           String
+  category        String
+  evidence_url    String?
+  status          String    @default("pending")
+  submitted_at    DateTime  @default(now())
+  reviewed_at     DateTime?
+  reviewer_notes  String?
+
+  @@map("verification_requests")
+}
+
+model VerificationLog {
+  id                  Int      @id @default(autoincrement())
+  credential_id       String?
+  verifier_ip         String?
+  verifier_user_agent String?
+  status              String
+  verified_at         DateTime @default(now())
+
+  @@map("verification_logs")
+}
+
+model EmailSent {
+  id              Int      @id @default(autoincrement())
+  recipient_email String
+  subject         String
+  body            String
+  sent_at         DateTime @default(now())
+
+  @@map("emails_sent")
+}
+
+model RevokedCredential {
+  id              Int      @id @default(autoincrement())
+  credential_id   String
+  recipient_name  String
+  recipient_email String
+  type            String
+  title           String
+  category        String
+  revoked_at      DateTime @default(now())
+
+  @@map("revoked_credentials")
+}

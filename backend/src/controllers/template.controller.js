@@ -1,5 +1,5 @@
 const azureBlobService = require("../services/azureBlob.service");
-const { CertificateTemplate, BadgeTemplate, Collection } = require("../models");
+const prisma = require("../config/database");
 
 class TemplateController {
   async uploadSVGTemplate(req, res, next) {
@@ -13,18 +13,20 @@ class TemplateController {
       // 1. Store SVG in Azure Blob Storage
       const templateUrl = await azureBlobService.uploadSVGTemplate(name, svgContent);
 
-      // 2. Save Metadata in Neon PostgreSQL
-      const template = await CertificateTemplate.create({
-        name,
-        template_url: templateUrl,
-        category,
-        is_default: Boolean(is_default)
+      // 2. Save Metadata in Neon PostgreSQL via Prisma
+      const template = await prisma.certificateTemplate.create({
+        data: {
+          name,
+          template_url: templateUrl,
+          category,
+          is_default: Boolean(is_default)
+        }
       });
 
       res.status(201).json({
         success: true,
-        message: "SVG template successfully uploaded to Azure Blob Storage and metadata saved to Neon PostgreSQL.",
-        template: template.toJSON()
+        message: "SVG template successfully uploaded to Azure Blob Storage and metadata saved to Neon PostgreSQL via Prisma.",
+        template
       });
     } catch (err) {
       next(err);
@@ -33,10 +35,10 @@ class TemplateController {
 
   async getTemplates(req, res, next) {
     try {
-      const templates = await CertificateTemplate.findAll({
-        order: [["created_at", "DESC"]]
+      const templates = await prisma.certificateTemplate.findMany({
+        orderBy: { created_at: "desc" }
       });
-      res.json(templates.map(t => t.toJSON()));
+      res.json(templates);
     } catch (err) {
       next(err);
     }
@@ -44,8 +46,10 @@ class TemplateController {
 
   async createTemplate(req, res, next) {
     try {
-      const template = await BadgeTemplate.create(req.body);
-      res.status(201).json(template.toJSON());
+      const template = await prisma.badgeTemplate.create({
+        data: req.body
+      });
+      res.status(201).json(template);
     } catch (err) {
       next(err);
     }
@@ -54,8 +58,8 @@ class TemplateController {
   async deleteTemplate(req, res, next) {
     const { id } = req.params;
     try {
-      await BadgeTemplate.destroy({ where: { id } });
-      await CertificateTemplate.destroy({ where: { id } });
+      await prisma.badgeTemplate.deleteMany({ where: { id: Number(id) } });
+      await prisma.certificateTemplate.deleteMany({ where: { id: Number(id) } });
       res.json({ message: `Template ${id} deleted successfully.` });
     } catch (err) {
       next(err);
@@ -64,8 +68,10 @@ class TemplateController {
 
   async getCollections(req, res, next) {
     try {
-      const collections = await Collection.findAll({ order: [["created_at", "DESC"]] });
-      res.json(collections.map(c => c.toJSON()));
+      const collections = await prisma.collection.findMany({
+        orderBy: { created_at: "desc" }
+      });
+      res.json(collections);
     } catch (err) {
       next(err);
     }
@@ -73,8 +79,10 @@ class TemplateController {
 
   async createCollection(req, res, next) {
     try {
-      const collection = await Collection.create(req.body);
-      res.status(201).json(collection.toJSON());
+      const collection = await prisma.collection.create({
+        data: req.body
+      });
+      res.status(201).json(collection);
     } catch (err) {
       next(err);
     }
@@ -83,7 +91,7 @@ class TemplateController {
   async deleteCollection(req, res, next) {
     const { id } = req.params;
     try {
-      await Collection.destroy({ where: { id } });
+      await prisma.collection.delete({ where: { id: Number(id) } });
       res.json({ message: `Collection ${id} deleted successfully.` });
     } catch (err) {
       next(err);

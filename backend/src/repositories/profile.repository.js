@@ -1,56 +1,61 @@
-const { User, ActivityLog, EmailSent } = require("../models");
+const prisma = require("../config/database");
 
 class ProfileRepository {
   async updateProfile(userId, name, bio, headline, profilePhoto, linkedinUrl, githubUrl, skillsJson) {
-    const updateFields = { bio, headline, linkedin_url: linkedinUrl, github_url: githubUrl, skills: skillsJson };
-    if (name) updateFields.name = name;
-    if (profilePhoto) updateFields.profile_photo = profilePhoto;
+    const data = { bio, headline, linkedin_url: linkedinUrl, github_url: githubUrl, skills: skillsJson };
+    if (name) data.name = name;
+    if (profilePhoto) data.profile_photo = profilePhoto;
 
-    return await User.update(updateFields, { where: { id: userId } });
+    return await prisma.user.update({
+      where: { id: Number(userId) },
+      data
+    });
   }
 
   async createActivityLog(userId, action) {
-    return await ActivityLog.create({
-      user_id: userId,
-      action: action
+    return await prisma.activityLog.create({
+      data: {
+        user_id: Number(userId),
+        action
+      }
     });
   }
 
   async getActivityLogs(userId) {
-    const logs = await ActivityLog.findAll({
-      where: { user_id: userId },
-      order: [['timestamp', 'DESC']],
-      limit: 15
+    return await prisma.activityLog.findMany({
+      where: { user_id: Number(userId) },
+      orderBy: { timestamp: 'desc' },
+      take: 15
     });
-    return logs.map(l => l.toJSON());
   }
 
   async getAdminActivityLogs() {
-    const logs = await ActivityLog.findAll({
-      include: [{ model: User, attributes: ['name', 'email'] }],
-      order: [['timestamp', 'DESC']]
+    const logs = await prisma.activityLog.findMany({
+      orderBy: { timestamp: 'desc' },
+      include: { user: true }
     });
-    return logs.map(l => {
-      const json = l.toJSON();
-      json.user_name = json.User ? json.User.name : 'Unknown';
-      json.user_email = json.User ? json.User.email : 'Unknown';
-      return json;
-    });
+
+    return logs.map(l => ({
+      ...l,
+      user_name: l.user ? l.user.name : 'Unknown',
+      user_email: l.user ? l.user.email : 'Unknown'
+    }));
   }
 
   async getSentEmails() {
-    const emails = await EmailSent.findAll({
-      order: [['sent_at', 'DESC']],
-      limit: 8
+    return await prisma.emailSent.findMany({
+      orderBy: { sent_at: 'desc' },
+      take: 8
     });
-    return emails.map(e => e.toJSON());
   }
 
   async logSentEmail(email, subject, body) {
-    return await EmailSent.create({
-      recipient_email: email,
-      subject: subject,
-      body: body
+    return await prisma.emailSent.create({
+      data: {
+        recipient_email: email,
+        subject,
+        body
+      }
     });
   }
 }

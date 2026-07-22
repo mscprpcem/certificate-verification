@@ -1,26 +1,31 @@
-const { Credential, VerificationRequest, VerificationLog, RevokedCredential, sequelize } = require("../models");
-const { Op } = require("sequelize");
+const prisma = require("../config/database");
 
 class CredentialRepository {
   async findById(id) {
-    const cred = await Credential.findByPk(id);
-    return cred ? cred.toJSON() : null;
+    if (!id) return null;
+    return await prisma.credential.findUnique({
+      where: { id }
+    });
   }
 
   async findBadgeById(id) {
-    const cred = await Credential.findOne({
+    if (!id) return null;
+    return await prisma.credential.findFirst({
       where: { id, type: 'badge' }
     });
-    return cred ? cred.toJSON() : null;
   }
 
   async findByEmail(email) {
     if (!email) return [];
-    const creds = await Credential.findAll({
-      where: sequelize.where(sequelize.fn('LOWER', sequelize.col('recipient_email')), email.toLowerCase().trim()),
-      order: [['issue_date', 'DESC']]
+    return await prisma.credential.findMany({
+      where: {
+        recipient_email: {
+          equals: email.toLowerCase().trim(),
+          mode: 'insensitive'
+        }
+      },
+      orderBy: { issue_date: 'desc' }
     });
-    return creds.map(c => c.toJSON());
   }
 
   async findByRecipientNameAndEvent(name, year, eventName) {
@@ -28,32 +33,29 @@ class CredentialRepository {
     const cleanEvent = (eventName || '').toLowerCase().trim();
     const cleanYear = (year || '').trim();
 
-    const creds = await Credential.findAll({
+    const creds = await prisma.credential.findMany({
       where: {
-        [Op.and]: [
-          sequelize.where(sequelize.fn('LOWER', sequelize.col('recipient_name')), cleanName),
-          {
-            [Op.or]: [
-              { type: 'certificate' },
-              { category: 'Event' },
-              { category: { [Op.like]: '%Event%' } }
-            ]
-          }
+        recipient_name: {
+          equals: cleanName,
+          mode: 'insensitive'
+        },
+        OR: [
+          { type: 'certificate' },
+          { category: { contains: 'Event', mode: 'insensitive' } }
         ]
       },
-      order: [['created_at', 'DESC']]
+      orderBy: { created_at: 'desc' }
     });
 
-    const list = creds.map(c => c.toJSON());
     if (cleanEvent) {
-      const match = list.find(c => (c.title || '').toLowerCase().includes(cleanEvent));
+      const match = creds.find(c => (c.title || '').toLowerCase().includes(cleanEvent));
       if (match) return match;
     }
     if (cleanYear) {
-      const match = list.find(c => (c.issue_date || '').includes(cleanYear) || (c.id || '').includes(cleanYear));
+      const match = creds.find(c => (c.issue_date || '').includes(cleanYear) || (c.id || '').includes(cleanYear));
       if (match) return match;
     }
-    return list[0] || null;
+    return creds[0] || null;
   }
 
   async findByRecipientNameAndTeam(name, year) {
@@ -62,186 +64,208 @@ class CredentialRepository {
     const cleanYear = year.trim();
     const firstYear = cleanYear.split('-')[0];
 
-    const cred = await Credential.findOne({
+    return await prisma.credential.findFirst({
       where: {
-        [Op.and]: [
-          sequelize.where(sequelize.fn('LOWER', sequelize.col('recipient_name')), cleanName),
+        recipient_name: {
+          equals: cleanName,
+          mode: 'insensitive'
+        },
+        OR: [
+          { type: 'badge' },
+          { category: { contains: 'Team', mode: 'insensitive' } }
+        ],
+        AND: [
           {
-            [Op.or]: [
-              { type: 'badge' },
-              { category: 'Team' },
-              { category: { [Op.like]: '%Team%' } }
-            ]
-          },
-          {
-            [Op.or]: [
-              { issue_date: { [Op.like]: `%${cleanYear}%` } },
-              { issue_date: { [Op.like]: `%${firstYear}%` } }
+            OR: [
+              { issue_date: { contains: cleanYear } },
+              { issue_date: { contains: firstYear } }
             ]
           }
         ]
       }
     });
-    return cred ? cred.toJSON() : null;
   }
 
   async findByRecipientNameFirst(name) {
     if (!name) return null;
-    const cred = await Credential.findOne({
-      where: sequelize.where(sequelize.fn('LOWER', sequelize.col('recipient_name')), name.toLowerCase().trim())
+    return await prisma.credential.findFirst({
+      where: {
+        recipient_name: {
+          equals: name.toLowerCase().trim(),
+          mode: 'insensitive'
+        }
+      }
     });
-    return cred ? cred.toJSON() : null;
   }
 
   async findByUserIdOrEmail(userId, email) {
-    const creds = await Credential.findAll({
+    const cleanEmail = (email || '').toLowerCase().trim();
+    return await prisma.credential.findMany({
       where: {
-        [Op.or]: [
-          sequelize.where(sequelize.fn('LOWER', sequelize.col('recipient_email')), (email || '').toLowerCase().trim()),
-          { user_id: userId || null }
+        OR: [
+          { recipient_email: { equals: cleanEmail, mode: 'insensitive' } },
+          { user_id: userId ? Number(userId) : -1 }
         ]
       },
-      order: [['created_at', 'DESC']]
+      orderBy: { created_at: 'desc' }
     });
-    return creds.map(c => c.toJSON());
   }
 
   async updateUserIdByEmail(userId, email) {
     if (!email) return null;
-    return await Credential.update(
-      { user_id: userId },
-      {
-        where: sequelize.where(sequelize.fn('LOWER', sequelize.col('recipient_email')), email.toLowerCase().trim())
-      }
-    );
+    return await prisma.credential.updateMany({
+      where: {
+        recipient_email: { equals: email.toLowerCase().trim(), mode: 'insensitive' }
+      },
+      data: { user_id: Number(userId) }
+    });
   }
 
   async create(credData) {
-    const cred = await Credential.create({
-      id: credData.id,
-      recipient_name: credData.recipient_name,
-      recipient_email: credData.recipient_email.toLowerCase().trim(),
-      user_id: credData.user_id || null,
-      type: credData.type,
-      title: credData.title,
-      category: credData.category,
-      domain: credData.domain || null,
-      issue_date: credData.issue_date,
-      description: credData.description,
-      badge_icon: credData.badge_icon,
-      skills_list: credData.skills_list || '',
-      score: credData.score || null
+    const cred = await prisma.credential.create({
+      data: {
+        id: credData.id,
+        recipient_name: credData.recipient_name,
+        recipient_email: credData.recipient_email.toLowerCase().trim(),
+        user_id: credData.user_id ? Number(credData.user_id) : null,
+        type: credData.type,
+        title: credData.title,
+        category: credData.category,
+        domain: credData.domain || null,
+        issue_date: credData.issue_date,
+        description: credData.description,
+        badge_icon: credData.badge_icon,
+        skills_list: credData.skills_list || '',
+        score: credData.score ? Number(credData.score) : null,
+        template_url: credData.template_url || null
+      }
     });
     return cred.id;
   }
 
   async delete(id) {
-    return await Credential.destroy({ where: { id } });
+    return await prisma.credential.delete({
+      where: { id }
+    });
   }
 
   async findAll() {
-    const creds = await Credential.findAll({ order: [['created_at', 'DESC']] });
-    return creds.map(c => c.toJSON());
+    return await prisma.credential.findMany({
+      orderBy: { created_at: 'desc' }
+    });
   }
 
   async findRecent() {
-    const creds = await Credential.findAll({
-      order: [['created_at', 'DESC']],
-      limit: 5
+    return await prisma.credential.findMany({
+      orderBy: { created_at: 'desc' },
+      take: 5
     });
-    return creds.map(c => c.toJSON());
   }
 
   async getCertificatesCount() {
-    return await Credential.count({ where: { type: 'certificate' } });
-  }
-
-  async getBadgesCount() {
-    return await Credential.count({ where: { type: 'badge' } });
-  }
-
-  async getUniqueStudentsCount() {
-    return await Credential.count({
-      distinct: true,
-      col: 'recipient_email'
+    return await prisma.credential.count({
+      where: { type: 'certificate' }
     });
   }
 
+  async getBadgesCount() {
+    return await prisma.credential.count({
+      where: { type: 'badge' }
+    });
+  }
+
+  async getUniqueStudentsCount() {
+    const res = await prisma.credential.groupBy({
+      by: ['recipient_email']
+    });
+    return res.length;
+  }
+
   async findSuggestions(credType, query) {
-    const creds = await Credential.findAll({
-      attributes: [[sequelize.fn('DISTINCT', sequelize.col('recipient_name')), 'recipient_name']],
+    const creds = await prisma.credential.findMany({
+      distinct: ['recipient_name'],
       where: {
         type: credType,
-        recipient_name: { [Op.like]: `%${query}%` }
+        recipient_name: { contains: query, mode: 'insensitive' }
       },
-      limit: 6
+      take: 6
     });
     return creds.map(c => c.recipient_name);
   }
 
   // Revoke logs
   async createRevocationLog(credId, name, email, type, title, category) {
-    return await RevokedCredential.create({
-      credential_id: credId,
-      recipient_name: name,
-      recipient_email: email,
-      type: type,
-      title: title,
-      category: category
+    return await prisma.revokedCredential.create({
+      data: {
+        credential_id: credId,
+        recipient_name: name,
+        recipient_email: email,
+        type,
+        title,
+        category
+      }
     });
   }
 
   async getRevokedList() {
-    const logs = await RevokedCredential.findAll({ order: [['revoked_at', 'DESC']] });
-    return logs.map(l => l.toJSON());
+    return await prisma.revokedCredential.findMany({
+      orderBy: { revoked_at: 'desc' }
+    });
   }
 
   // Verification Requests & Logs
   async createVerificationLog(credId, ip, ua, status) {
-    return await VerificationLog.create({
-      credential_id: credId,
-      verifier_ip: ip,
-      verifier_user_agent: ua,
-      status: status
+    return await prisma.verificationLog.create({
+      data: {
+        credential_id: credId,
+        verifier_ip: ip,
+        verifier_user_agent: ua,
+        status
+      }
     });
   }
 
   async getVerificationLogs() {
-    const logs = await VerificationLog.findAll({ order: [['verified_at', 'DESC']] });
-    return logs.map(l => l.toJSON());
+    return await prisma.verificationLog.findMany({
+      orderBy: { verified_at: 'desc' }
+    });
   }
 
   async createVerificationRequest(name, email, type, title, category, evidence) {
-    return await VerificationRequest.create({
-      student_name: name,
-      student_email: email,
-      credential_type: type,
-      title: title,
-      category: category,
-      evidence_url: evidence,
-      status: 'pending'
+    return await prisma.verificationRequest.create({
+      data: {
+        student_name: name,
+        student_email: email,
+        credential_type: type,
+        title,
+        category,
+        evidence_url: evidence,
+        status: 'pending'
+      }
     });
   }
 
   async getVerificationRequests() {
-    const reqs = await VerificationRequest.findAll({ order: [['submitted_at', 'DESC']] });
-    return reqs.map(r => r.toJSON());
+    return await prisma.verificationRequest.findMany({
+      orderBy: { submitted_at: 'desc' }
+    });
   }
 
   async findVerificationRequestById(id) {
-    const req = await VerificationRequest.findByPk(id);
-    return req ? req.toJSON() : null;
+    return await prisma.verificationRequest.findUnique({
+      where: { id: Number(id) }
+    });
   }
 
   async updateVerificationRequestReview(id, status, notes) {
-    return await VerificationRequest.update(
-      {
-        status: status,
+    return await prisma.verificationRequest.update({
+      where: { id: Number(id) },
+      data: {
+        status,
         reviewed_at: new Date(),
         reviewer_notes: notes
-      },
-      { where: { id } }
-    );
+      }
+    });
   }
 }
 
