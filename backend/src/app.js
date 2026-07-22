@@ -18,7 +18,7 @@ const app = express();
 
 // CORS setup
 app.use(cors({
-  origin: "http://localhost:5173",
+  origin: true,
   credentials: true
 }));
 
@@ -51,6 +51,7 @@ app.get("/api/u/:username", credentialController.getPublicProfile);
 app.get("/api/emails/recent", profileController.getRecentSentEmails);
 app.post("/api/verification-requests", requireAuth, credentialController.submitClaim);
 app.post("/api/integration/publish-results", credentialController.publishResults);
+app.post("/api/webhooks/quiz-certificates", credentialController.publishResults);
 
 // Serve frontend build if built (Production fallback)
 const reactBuildPath = path.join(__dirname, "..", "..", "frontend", "dist");

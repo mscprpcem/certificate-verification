@@ -22,17 +22,30 @@ class CredentialController {
   }
 
   async publishResults(req, res, next) {
-    const { quizTitle, participants, publishDate, rules } = req.body;
-    if (!quizTitle || !participants || !Array.isArray(participants)) {
-      return res.status(400).json({ error: "Quiz Title and array of participants are required." });
-    }
-
     try {
-      const records = await credentialService.publishQuizResults(quizTitle, participants, publishDate, rules);
+      const apiKey = req.headers["x-api-key"];
+      if (apiKey && apiKey !== "msc_quiz_verification_secret_key_2026") {
+        return res.status(401).json({ error: "Unauthorized key" });
+      }
+
+      const { event, attendees, quizTitle, participants, publishDate, rules } = req.body;
+      const title = event?.title || event?.eventName || quizTitle || "MSC Quiz Session";
+      const list = attendees || participants || [];
+
+      if (!list || !Array.isArray(list)) {
+        return res.status(400).json({ error: "Quiz Title and array of participants/attendees are required." });
+      }
+
+      const dateStr = event?.date
+        ? new Date(event.date).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })
+        : publishDate;
+
+      const records = await credentialService.publishQuizResults(title, list, dateStr, rules);
       res.json({
         success: true,
-        message: `Processed ${participants.length} quiz results.`,
-        records
+        message: `Processed ${records.length} certificate/badge records for event "${title}".`,
+        records,
+        eventId: event?.quizId || `EVT-${Date.now()}`
       });
     } catch (err) {
       next(err);

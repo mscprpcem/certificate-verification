@@ -44,39 +44,48 @@ class CredentialService {
   }
 
   async publishQuizResults(quizTitle, participants, publishDate, rules) {
-    const activeRules = rules || { passingScore: 50, goldScore: 90 };
-    const dateStr = publishDate || "20 July 2026";
+    const dateStr = publishDate || new Date().toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
     const resultsLog = [];
 
     for (const p of participants) {
       if (!p.name || !p.email) continue;
+      if (p.disqualified) continue;
+
       const score = p.score || 0;
       const normEmail = p.email.toLowerCase().trim();
 
-      let credentialType = null;
-      let title = "";
-      let category = "";
-      let badgeIcon = "";
-      let skillsList = "";
-      let description = "";
-      let xpEarned = 50;
+      let credentialType = "certificate";
+      let title = `${quizTitle} - Certificate of Participation`;
+      let category = p.certificateCategory || "Participation Certificate";
+      let badgeIcon = "fa-award";
+      let skillsList = "Technical Knowledge, Problem Solving";
+      let description = `Awarded to ${p.name} for active participation in the MSC PRPCEM ${quizTitle}.`;
+      let xpEarned = 100;
 
-      if (score >= activeRules.goldScore) {
+      if (p.rank === 1) {
         credentialType = "badge";
-        title = quizTitle;
+        title = `${quizTitle} - 1st Place Winner`;
         category = "Badge";
         badgeIcon = "fa-trophy";
-        skillsList = "Problem Solving, Java, Logic";
-        description = `Awarded for earning a top score of ${score}% in the MSC PRPCEM ${quizTitle}.`;
-        xpEarned += 300;
-      } else if (score >= activeRules.passingScore) {
+        skillsList = "Problem Solving, Excellence, Quiz Champion";
+        description = `Awarded to ${p.name} for securing 1st Place in the MSC PRPCEM ${quizTitle}.`;
+        xpEarned = 500;
+      } else if (p.rank === 2 || p.rank === 3) {
+        credentialType = "badge";
+        title = `${quizTitle} - Runner-Up (${p.rank}${p.rank === 2 ? 'nd' : 'rd'} Place)`;
+        category = "Badge";
+        badgeIcon = "fa-medal";
+        skillsList = "Problem Solving, High Standing";
+        description = `Awarded to ${p.name} for securing ${p.rank}${p.rank === 2 ? 'nd' : 'rd'} Place in the MSC PRPCEM ${quizTitle}.`;
+        xpEarned = 300;
+      } else if (p.rank <= 10 && p.rank > 3) {
         credentialType = "certificate";
-        title = `${quizTitle} Participation`;
-        category = "Event";
-        badgeIcon = "fa-award";
-        skillsList = "Problem Solving, Logic";
-        description = `Awarded for completing the MSC PRPCEM ${quizTitle} with a passing score of ${score}%.`;
-        xpEarned += 100;
+        title = `${quizTitle} - Top 10 Merit Certificate`;
+        category = "Merit Certificate";
+        badgeIcon = "fa-star";
+        skillsList = "Problem Solving, Merit";
+        description = `Awarded to ${p.name} for securing Rank #${p.rank} in the MSC PRPCEM ${quizTitle}.`;
+        xpEarned = 200;
       }
 
       let user = await userRepository.findByEmail(normEmail);
@@ -99,12 +108,17 @@ class CredentialService {
         });
       } else {
         userId = user.id;
-        const newXp = user.xp + xpEarned;
+        const newXp = (user.xp || 0) + xpEarned;
         await userRepository.updateXpAndLevel(userId, newXp, authService.calculateLevel(newXp));
       }
 
-      let credId = null;
-      if (credentialType) {
+      // Check duplicate issuance for same quiz and title
+      const existing = await credentialRepository.findByEmail(normEmail);
+      const alreadyIssued = existing.find(c => c.title === title || (c.domain === quizTitle && c.type === credentialType));
+
+      let credId = alreadyIssued ? alreadyIssued.id : null;
+
+      if (!alreadyIssued) {
         const randId = Math.floor(10000 + Math.random() * 90000);
         credId = `MSC-${credentialType === "badge" ? "BDG" : "CRT"}-${String(randId).padStart(5, "0")}`;
 
@@ -124,14 +138,18 @@ class CredentialService {
           score
         });
 
-        await profileRepository.createActivityLog(userId, `Earned ${title} ${category}`);
-        await emailService.sendQuizBadgeEmail(p.name, normEmail, title, score, dateStr, credId);
+        await profileRepository.createActivityLog(userId, `Earned ${title}`);
+        try {
+          await emailService.sendQuizBadgeEmail(p.name, normEmail, title, score, dateStr, credId);
+        } catch (e) {
+          console.warn('Email dispatch warning:', e.message);
+        }
       }
 
       resultsLog.push({
         name: p.name,
         email: normEmail,
-        issued: !!credentialType,
+        issued: true,
         id: credId,
         score,
         xpEarned
