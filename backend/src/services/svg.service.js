@@ -1,5 +1,7 @@
+const azureBlobService = require("./azureBlob.service");
+
 class SVGService {
-  generateCertificateSVG(cred) {
+  async generateCertificateSVG(cred, customBlobUrl = null) {
     const name = cred.recipient_name || "Verified Student";
     const title = cred.title || "Certificate of Excellence";
     const date = cred.issue_date || new Date().toLocaleDateString();
@@ -7,6 +9,32 @@ class SVGService {
     const category = cred.category || "Official Credential";
     const skills = cred.skills_list || "Cloud, Technology, Leadership";
 
+    const blobUrl = customBlobUrl || cred.template_url;
+
+    // Try fetching SVG template from Azure Blob Storage
+    if (blobUrl) {
+      const blobSvgContent = await azureBlobService.fetchSVGFromBlobUrl(blobUrl);
+      if (blobSvgContent) {
+        return this.populateSVGTemplate(blobSvgContent, { name, title, date, id, category, skills });
+      }
+    }
+
+    // Default SVG vector template fallback
+    return this.getDefaultVectorSVG({ name, title, date, id, category, skills });
+  }
+
+  populateSVGTemplate(templateStr, { name, title, date, id, category, skills }) {
+    let svg = templateStr;
+    svg = svg.replace(/\{\{\s*(RECIPIENT_NAME|NAME)\s*\}\}/gi, this.escapeXml(name));
+    svg = svg.replace(/\{\{\s*(TITLE|EVENT_TITLE)\s*\}\}/gi, this.escapeXml(title));
+    svg = svg.replace(/\{\{\s*(ISSUE_DATE|DATE)\s*\}\}/gi, this.escapeXml(date));
+    svg = svg.replace(/\{\{\s*(CREDENTIAL_ID|ID)\s*\}\}/gi, this.escapeXml(id));
+    svg = svg.replace(/\{\{\s*CATEGORY\s*\}\}/gi, this.escapeXml(category));
+    svg = svg.replace(/\{\{\s*SKILLS\s*\}\}/gi, this.escapeXml(skills));
+    return svg;
+  }
+
+  getDefaultVectorSVG({ name, title, date, id, category, skills }) {
     return `<?xml version="1.0" encoding="UTF-8"?>
 <svg width="1000" height="700" viewBox="0 0 1000 700" xmlns="http://www.w3.org/2000/svg">
   <defs>
@@ -27,13 +55,12 @@ class SVGService {
   <!-- Background Card -->
   <rect width="1000" height="700" fill="url(#bgGrad)"/>
   
-  <!-- Outer Gold/Blue Border -->
+  <!-- Outer Border -->
   <rect x="25" y="25" width="950" height="650" fill="none" stroke="url(#accentGrad)" stroke-width="4" rx="16"/>
   <rect x="35" y="35" width="930" height="630" fill="none" stroke="#334155" stroke-width="1" rx="12"/>
 
   <!-- Top Banner / Header -->
   <g transform="translate(60, 70)">
-    <!-- Microsoft Logo / Icon -->
     <rect x="0" y="0" width="18" height="18" fill="#f25022"/>
     <rect x="22" y="0" width="18" height="18" fill="#7fba00"/>
     <rect x="0" y="22" width="18" height="18" fill="#00a4ef"/>
@@ -66,7 +93,6 @@ class SVGService {
   </g>
 
   <g transform="translate(500, 560)">
-    <!-- Official Seal Badge -->
     <circle cx="0" cy="0" r="32" fill="#1e3a8a" stroke="url(#accentGrad)" stroke-width="3"/>
     <path d="M-10,-4 L0,12 L12,-10" fill="none" stroke="#60a5fa" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
     <text x="0" y="46" fill="#94a3b8" font-family="'Segoe UI', Roboto, sans-serif" font-size="10" font-weight="800" text-anchor="middle">OFFICIALLY VERIFIED</text>

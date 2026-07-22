@@ -49,6 +49,10 @@ const Credential = sequelize.define("Credential", {
   },
   score: {
     type: DataTypes.INTEGER
+  },
+  template_url: {
+    type: DataTypes.TEXT,
+    allowNull: true
   }
 }, {
   tableName: "credentials",

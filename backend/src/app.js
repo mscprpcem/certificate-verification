@@ -8,6 +8,7 @@ const profileRoutes = require("./routes/profile.routes");
 const credentialRoutes = require("./routes/credential.routes");
 const analyticsRoutes = require("./routes/analytics.routes");
 const adminRoutes = require("./routes/admin.routes");
+const templateRoutes = require("./routes/template.routes");
 
 const credentialController = require("./controllers/credential.controller");
 const profileController = require("./controllers/profile.controller");
@@ -67,6 +68,7 @@ app.use("/api/profile", profileRoutes);
 app.use("/api/credentials", credentialRoutes);
 app.use("/api/credentials", analyticsRoutes);
 app.use("/api/admin", adminRoutes);
+app.use("/api/templates", templateRoutes);
 
 // Miscellaneous / Integration / Public Endpoints
 app.get("/api/u/:username", credentialController.getPublicProfile);

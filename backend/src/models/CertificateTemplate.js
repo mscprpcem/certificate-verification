@@ -11,9 +11,13 @@ const CertificateTemplate = sequelize.define("CertificateTemplate", {
     type: DataTypes.STRING,
     allowNull: false
   },
-  svg_content: {
+  template_url: {
     type: DataTypes.TEXT,
     allowNull: false
+  },
+  category: {
+    type: DataTypes.STRING,
+    defaultValue: "Event"
   },
   is_default: {
     type: DataTypes.BOOLEAN,

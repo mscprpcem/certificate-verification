@@ -1,10 +1,42 @@
-const templateService = require("../services/template.service");
+const azureBlobService = require("../services/azureBlob.service");
+const { CertificateTemplate, BadgeTemplate, Collection } = require("../models");
 
 class TemplateController {
+  async uploadSVGTemplate(req, res, next) {
+    const { name, svgContent, category = "Event", is_default = false } = req.body;
+
+    if (!name || !svgContent) {
+      return res.status(400).json({ error: "Template 'name' and 'svgContent' string are required." });
+    }
+
+    try {
+      // 1. Store SVG in Azure Blob Storage
+      const templateUrl = await azureBlobService.uploadSVGTemplate(name, svgContent);
+
+      // 2. Save Metadata in Neon PostgreSQL
+      const template = await CertificateTemplate.create({
+        name,
+        template_url: templateUrl,
+        category,
+        is_default: Boolean(is_default)
+      });
+
+      res.status(201).json({
+        success: true,
+        message: "SVG template successfully uploaded to Azure Blob Storage and metadata saved to Neon PostgreSQL.",
+        template: template.toJSON()
+      });
+    } catch (err) {
+      next(err);
+    }
+  }
+
   async getTemplates(req, res, next) {
     try {
-      const list = await templateService.getTemplates();
-      res.json(list);
+      const templates = await CertificateTemplate.findAll({
+        order: [["created_at", "DESC"]]
+      });
+      res.json(templates.map(t => t.toJSON()));
     } catch (err) {
       next(err);
     }
@@ -12,8 +44,8 @@ class TemplateController {
 
   async createTemplate(req, res, next) {
     try {
-      await templateService.createTemplate(req.body);
-      res.json({ success: true, message: "Template created successfully." });
+      const template = await BadgeTemplate.create(req.body);
+      res.status(201).json(template.toJSON());
     } catch (err) {
       next(err);
     }
@@ -22,8 +54,9 @@ class TemplateController {
   async deleteTemplate(req, res, next) {
     const { id } = req.params;
     try {
-      await templateService.deleteTemplate(id);
-      res.json({ success: true, message: "Template deleted successfully." });
+      await BadgeTemplate.destroy({ where: { id } });
+      await CertificateTemplate.destroy({ where: { id } });
+      res.json({ message: `Template ${id} deleted successfully.` });
     } catch (err) {
       next(err);
     }
@@ -31,8 +64,8 @@ class TemplateController {
 
   async getCollections(req, res, next) {
     try {
-      const list = await templateService.getCollections();
-      res.json(list);
+      const collections = await Collection.findAll({ order: [["created_at", "DESC"]] });
+      res.json(collections.map(c => c.toJSON()));
     } catch (err) {
       next(err);
     }
@@ -40,8 +73,8 @@ class TemplateController {
 
   async createCollection(req, res, next) {
     try {
-      await templateService.createCollection(req.body);
-      res.json({ success: true, message: "Collection pathway created successfully." });
+      const collection = await Collection.create(req.body);
+      res.status(201).json(collection.toJSON());
     } catch (err) {
       next(err);
     }
@@ -50,8 +83,8 @@ class TemplateController {
   async deleteCollection(req, res, next) {
     const { id } = req.params;
     try {
-      await templateService.deleteCollection(id);
-      res.json({ success: true, message: "Collection deleted successfully." });
+      await Collection.destroy({ where: { id } });
+      res.json({ message: `Collection ${id} deleted successfully.` });
     } catch (err) {
       next(err);
     }
