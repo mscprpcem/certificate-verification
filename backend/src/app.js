@@ -1,8 +1,8 @@
 const express = require("express");
 const session = require("express-session");
 const cors = require("cors");
-const path = require("path");
 
+const env = require("./config/env");
 const authRoutes = require("./routes/auth.routes");
 const profileRoutes = require("./routes/profile.routes");
 const credentialRoutes = require("./routes/credential.routes");
@@ -16,11 +16,33 @@ const errorMiddleware = require("./middleware/error.middleware");
 
 const app = express();
 
+// Allowed Origins for CORS
+const allowedOrigins = [
+  "https://verify.mscprpcem.tech",
+  "http://localhost:5173",
+  "http://localhost:3000"
+];
+
+if (env.FRONTEND_URL) {
+  const cleanFrontendUrl = env.FRONTEND_URL.replace(/\/$/, "");
+  if (!allowedOrigins.includes(cleanFrontendUrl)) {
+    allowedOrigins.push(cleanFrontendUrl);
+  }
+}
+
 // CORS setup
-app.use(cors({
-  origin: true,
-  credentials: true
-}));
+app.use(
+  cors({
+    origin: (origin, callback) => {
+      if (!origin || allowedOrigins.includes(origin) || origin.endsWith(".azurestaticapps.net")) {
+        callback(null, true);
+      } else {
+        callback(null, true);
+      }
+    },
+    credentials: true
+  })
+);
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -28,11 +50,11 @@ app.use(express.urlencoded({ extended: true }));
 // Session
 app.use(
   session({
-    secret: "msc-club-credentials-secret-key-2026",
+    secret: env.SESSION_SECRET || "msc-club-credentials-secret-key-2026",
     resave: false,
     saveUninitialized: false,
     cookie: {
-      secure: false, // Set to true if running over HTTPS
+      secure: false, // Set to true if running over HTTPS behind proxy
       httpOnly: true,
       maxAge: 24 * 60 * 60 * 1000 // 24 Hours
     }
@@ -53,15 +75,20 @@ app.post("/api/verification-requests", requireAuth, credentialController.submitC
 app.post("/api/integration/publish-results", credentialController.publishResults);
 app.post("/api/webhooks/quiz-certificates", credentialController.publishResults);
 
-// Serve frontend build if built (Production fallback)
-const reactBuildPath = path.join(__dirname, "..", "..", "frontend", "dist");
-app.use(express.static(reactBuildPath));
+// Health endpoint
+app.get("/", (req, res) => {
+  res.json({
+    status: "OK",
+    service: "MSC Certificate Verification API",
+    version: "1.0.0"
+  });
+});
 
-app.get("*", (req, res) => {
-  res.sendFile(path.join(reactBuildPath, "index.html"), (err) => {
-    if (err) {
-      res.status(404).send("API Endpoint or Frontend React bundle not found.");
-    }
+// 404 for unknown API routes
+app.use((req, res) => {
+  res.status(404).json({
+    success: false,
+    message: "Endpoint not found"
   });
 });
 
