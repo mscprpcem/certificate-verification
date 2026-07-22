@@ -77,13 +77,13 @@ async function run() {
   });
 
   await test('Verify by Name (event type)', async () => {
-    const { data } = await fetchJSON(`${BASE}/api/credentials/verify?name=amit+kumar+yadav&type=event`);
+    const { data } = await fetchJSON(`${BASE}/api/credentials/verify?name=amit+kumar+yadav&type=event&year=2026&eventName=Copilot+Dev+Days`);
     assert(data.success === true, 'Should succeed');
     assert(data.record, 'Should have record');
   });
 
   await test('Verify by Name (team type)', async () => {
-    const { data } = await fetchJSON(`${BASE}/api/credentials/verify?name=amit+kumar+yadav&type=team`);
+    const { data } = await fetchJSON(`${BASE}/api/credentials/verify?name=amit+kumar+yadav&type=team&teamYear=2025-2026`);
     assert(data.success === true, 'Should succeed');
     assert(data.record, 'Should have record');
     assert(data.record.type === 'badge', 'Should be a badge for team type');

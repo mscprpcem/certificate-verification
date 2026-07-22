@@ -5,14 +5,6 @@ const profileRepository = require("../repositories/profile.repository");
 const authConfig = require("../config/auth");
 
 class AuthService {
-  calculateLevel(xp) {
-    if (xp >= 5000) return "Ambassador";
-    if (xp >= 2500) return "Expert";
-    if (xp >= 1200) return "Innovator";
-    if (xp >= 500) return "Contributor";
-    return "Explorer";
-  }
-
   async register(name, email, password) {
     const existingUser = await userRepository.findByEmail(email);
     const hashedPassword = await bcrypt.hash(password, authConfig.bcryptSaltRounds);
@@ -36,9 +28,7 @@ class AuthService {
         profile_photo: "",
         linkedin_url: "",
         github_url: "",
-        skills: "{}",
-        xp: 0,
-        level: "Explorer"
+        skills: "{}"
       });
     }
 
@@ -82,9 +72,7 @@ class AuthService {
         profile_photo: "",
         linkedin_url: "",
         github_url: "",
-        skills: "{}",
-        xp: 0,
-        level: "Explorer"
+        skills: "{}"
       });
     } else {
       userId = user.id;
@@ -92,26 +80,13 @@ class AuthService {
 
     await credentialRepository.updateUserIdByEmail(userId, normEmail);
 
-    if (normEmail === "student@mscprpcem.tech") {
-      await userRepository.updateXpAndLevel(userId, 1840, "Innovator");
-    }
-
     await profileRepository.createActivityLog(userId, "First Login - Digital Wallet Linked");
 
     return await userRepository.findById(userId);
   }
 
   async verifySession(userId) {
-    const user = await userRepository.findById(userId);
-    if (!user) return null;
-
-    const currentLevel = this.calculateLevel(user.xp);
-    if (currentLevel !== user.level) {
-      await userRepository.updateXpAndLevel(user.id, user.xp, currentLevel);
-      user.level = currentLevel;
-    }
-
-    return user;
+    return await userRepository.findById(userId);
   }
 }
 

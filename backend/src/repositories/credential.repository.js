@@ -14,22 +14,39 @@ class CredentialRepository {
   }
 
   async findByRecipientNameAndEvent(name, year, eventName) {
+    if (!name || !name.trim() || !year || !year.trim() || !eventName || !eventName.trim()) {
+      return null;
+    }
+
+    const cleanName = name.toLowerCase().trim();
+    const cleanYear = year.trim();
+    const cleanEvent = eventName.toLowerCase().trim();
+
     return await dbGet(
       `SELECT * FROM credentials 
        WHERE LOWER(recipient_name) = ? 
-       AND type = 'certificate'
-       AND (issue_date LIKE ? OR title = ? OR ? = '')`,
-      [name.toLowerCase().trim(), `%${year}%`, eventName, eventName || ""]
+       AND (type = 'certificate' OR category = 'Event' OR category LIKE '%Event%')
+       AND issue_date LIKE ?
+       AND (LOWER(title) = ? OR LOWER(title) LIKE ?)`,
+      [cleanName, `%${cleanYear}%`, cleanEvent, `%${cleanEvent}%`]
     );
   }
 
   async findByRecipientNameAndTeam(name, year) {
+    if (!name || !name.trim() || !year || !year.trim()) {
+      return null;
+    }
+
+    const cleanName = name.toLowerCase().trim();
+    const cleanYear = year.trim();
+    const firstYear = cleanYear.split('-')[0];
+
     return await dbGet(
       `SELECT * FROM credentials 
        WHERE LOWER(recipient_name) = ? 
-       AND type = 'badge'
-       AND (issue_date LIKE ? OR ? = '')`,
-      [name.toLowerCase().trim(), `%${year}%`, year || ""]
+       AND (type = 'badge' OR category = 'Team' OR category LIKE '%Team%')
+       AND (issue_date LIKE ? OR issue_date LIKE ?)`,
+      [cleanName, `%${cleanYear}%`, `%${firstYear}%`]
     );
   }
 

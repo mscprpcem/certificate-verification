@@ -97,7 +97,26 @@ export default function App() {
     checkSession();
     fetchPlatformData();
 
-    // Check if query string verification links loaded
+    // Check if URL is /u/:username path or query string verification links loaded
+    if (window.location.pathname.startsWith('/u/')) {
+      const uPath = window.location.pathname.replace(/^\/u\//, '').trim();
+      if (uPath) {
+        setProfileSearchQuery(uPath);
+        setCurrentView('public-profile');
+      }
+    }
+
+    const handlePopState = () => {
+      if (window.location.pathname.startsWith('/u/')) {
+        const uPath = window.location.pathname.replace(/^\/u\//, '').trim();
+        if (uPath) {
+          setProfileSearchQuery(uPath);
+          setCurrentView('public-profile');
+        }
+      }
+    };
+    window.addEventListener('popstate', handlePopState);
+
     const params = new URLSearchParams(window.location.search);
     const verifyId = params.get('verifyId');
     if (verifyId) {
@@ -111,7 +130,10 @@ export default function App() {
     if (usernameParam) {
       setProfileSearchQuery(usernameParam);
       setCurrentView('public-profile');
+      window.history.pushState({}, '', `/u/${usernameParam}`);
     }
+
+    return () => window.removeEventListener('popstate', handlePopState);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -181,12 +203,41 @@ export default function App() {
       if (!val) return;
       url += `url=${encodeURIComponent(val.trim())}`;
     } else if (queryTab === 'name') {
-      if (!searchName) return;
-      url += `name=${encodeURIComponent(searchName.trim())}&type=${nameType}`;
+      if (!searchName || !searchName.trim()) {
+        setVerifyResult({
+          success: false,
+          message: "Details not found. Please enter Student Full Name."
+        });
+        setTimeout(() => {
+          document.getElementById('verify-results-anchor')?.scrollIntoView({ behavior: 'smooth' });
+        }, 150);
+        return;
+      }
+
       if (nameType === 'event') {
-        url += `&year=${encodeURIComponent(searchYear)}&eventName=${encodeURIComponent(searchEvent)}`;
+        if (!searchEvent || !searchYear) {
+          setVerifyResult({
+            success: false,
+            message: "Details not found. Please select Event Name and Year properly."
+          });
+          setTimeout(() => {
+            document.getElementById('verify-results-anchor')?.scrollIntoView({ behavior: 'smooth' });
+          }, 150);
+          return;
+        }
+        url += `name=${encodeURIComponent(searchName.trim())}&type=${nameType}&year=${encodeURIComponent(searchYear)}&eventName=${encodeURIComponent(searchEvent)}`;
       } else {
-        url += `&teamYear=${encodeURIComponent(searchTeamYear)}`;
+        if (!searchTeamYear) {
+          setVerifyResult({
+            success: false,
+            message: "Details not found. Please select Team Year properly."
+          });
+          setTimeout(() => {
+            document.getElementById('verify-results-anchor')?.scrollIntoView({ behavior: 'smooth' });
+          }, 150);
+          return;
+        }
+        url += `name=${encodeURIComponent(searchName.trim())}&type=${nameType}&teamYear=${encodeURIComponent(searchTeamYear)}`;
       }
     }
 
@@ -629,31 +680,21 @@ export default function App() {
 
         <div className="nav-actions">
           {user ? (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-              {/* Notification bells */}
-              <button className="help-btn nav-icon-btn" style={{ position: 'relative' }} onClick={() => showNotification("You have 3 new notifications.")}>
-                <i className="fa-regular fa-bell"></i>
-                <span style={{ position: 'absolute', top: '2px', right: '2px', width: '6px', height: '6px', background: '#2563eb', borderRadius: '50%' }}></span>
-              </button>
-
-              <button className="help-btn nav-icon-btn" onClick={() => showNotification("No new private messages.")}>
-                <i className="fa-regular fa-envelope"></i>
-              </button>
-
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
               {/* User profile dropdown */}
               <div 
                 className="navbar-profile-wrapper"
                 onClick={() => setCurrentView('settings')}
                 style={{ cursor: 'pointer' }}
               >
-                <div className="profile-photo-circle" style={{ width: '32px', height: '32px', fontSize: '12px', margin: 0, border: '1px solid #cbd5e1', background: '#eff6ff' }}>
+                <div className="profile-photo-circle" style={{ width: '28px', height: '28px', fontSize: '11px', margin: 0, border: '1px solid #cbd5e1', background: '#eff6ff', color: '#2563eb', fontWeight: 800 }}>
                   {user.name ? user.name[0].toUpperCase() : 'A'}
                 </div>
-                <div className="profile-name-details" style={{ display: 'flex', flexDirection: 'column', lineHeight: '1.2' }}>
-                  <span style={{ fontSize: '12px', fontWeight: 800, color: 'var(--text-main)' }}>
+                <div className="profile-name-details" style={{ display: 'flex', flexDirection: 'column', lineHeight: '1.15' }}>
+                  <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-main)' }}>
                     {user.name || 'Student'}
                   </span>
-                  <span style={{ fontSize: '9px', color: 'var(--text-muted)', fontWeight: 700 }}>
+                  <span style={{ fontSize: '9px', color: 'var(--text-muted)', fontWeight: 600 }}>
                     {user.role === 'admin' ? 'Control Panel' : 'Settings'}
                   </span>
                 </div>
@@ -661,8 +702,9 @@ export default function App() {
 
               <button 
                 className="signin-btn" 
-                onClick={handleLogout} 
-                style={{ background: '#f1f5f9', color: 'var(--text-main)', boxShadow: 'none', padding: '6px 12px', fontSize: '11px' }}
+                onClick={handleLogout}
+                title="Sign Out" 
+                style={{ background: '#f1f5f9', color: 'var(--text-muted)', boxShadow: 'none', padding: '5px 10px', fontSize: '12px', borderRadius: '8px' }}
               >
                 <i className="fa-solid fa-arrow-right-from-bracket"></i>
               </button>
@@ -1001,7 +1043,18 @@ export default function App() {
                     value={profileSearchQuery}
                     onChange={(e) => setProfileSearchQuery(e.target.value)}
                   />
-                  <button className="verify-btn" style={{ whiteSpace: 'nowrap' }} onClick={() => setCurrentView('public-profile')}>Search</button>
+                  <button 
+                    className="verify-btn" 
+                    style={{ whiteSpace: 'nowrap' }} 
+                    onClick={() => {
+                      if (profileSearchQuery.trim()) {
+                        setCurrentView('public-profile');
+                        window.history.pushState({}, '', `/u/${encodeURIComponent(profileSearchQuery.trim())}`);
+                      }
+                    }}
+                  >
+                    Search
+                  </button>
                 </div>
                 <PublicProfile username={profileSearchQuery} onShowNotification={showNotification} />
               </div>
@@ -1423,8 +1476,10 @@ export default function App() {
                       <div className="error-result-card">
                         <div className="error-icon-box"><i className="fa-solid fa-circle-exclamation"></i></div>
                         <div>
-                          <div className="error-status-title">Verification Refused</div>
-                          <div className="error-message-text">❌ Record not found in our secure registry. Ensure the ID is spelled correctly.</div>
+                          <div className="error-status-title">Details Not Found</div>
+                          <div className="error-message-text">
+                            {verifyResult.message || "❌ Record not found in our secure registry. Ensure Name, Event Name, and Year are entered properly."}
+                          </div>
                         </div>
                       </div>
                     )}
