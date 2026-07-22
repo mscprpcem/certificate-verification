@@ -1,8 +1,24 @@
 const credentialService = require("../services/credential.service");
 const credentialRepository = require("../repositories/credential.repository");
 const analyticsService = require("../services/analytics.service");
+const svgService = require("../services/svg.service");
 
 class CredentialController {
+  async renderSVG(req, res, next) {
+    const { id } = req.params;
+    try {
+      const cred = await credentialRepository.findById(id);
+      if (!cred) {
+        return res.status(404).send("Credential not found.");
+      }
+      const svgContent = svgService.generateCertificateSVG(cred);
+      res.setHeader("Content-Type", "image/svg+xml");
+      res.send(svgContent);
+    } catch (err) {
+      next(err);
+    }
+  }
+
   async verify(req, res, next) {
     try {
       const query = {

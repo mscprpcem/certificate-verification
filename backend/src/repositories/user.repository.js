@@ -1,63 +1,84 @@
-const { dbRun, dbAll, dbGet } = require("../config/database");
+const { User, Credential } = require("../models");
+const { Op } = require("sequelize");
 
 class UserRepository {
   async findById(id) {
-    return await dbGet("SELECT * FROM users WHERE id = ?", [id]);
+    const user = await User.findByPk(id);
+    return user ? user.toJSON() : null;
   }
 
   async findByEmail(email) {
-    return await dbGet("SELECT * FROM users WHERE LOWER(email) = ?", [email.toLowerCase().trim()]);
+    if (!email) return null;
+    const user = await User.findOne({
+      where: { email: email.toLowerCase().trim() }
+    });
+    return user ? user.toJSON() : null;
   }
 
   async findByUsername(username) {
     if (!username) return null;
-    return await dbGet("SELECT * FROM users WHERE LOWER(username) = ?", [username.toLowerCase().trim()]);
+    const user = await User.findOne({
+      where: { username: username.toLowerCase().trim() }
+    });
+    return user ? user.toJSON() : null;
   }
 
-  async create(user) {
-    const result = await dbRun(
-      `INSERT INTO users (name, username, email, password_hash, role, bio, headline, profile_photo, linkedin_url, github_url, skills)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [
-        user.name,
-        user.username ? user.username.toLowerCase().trim() : user.email.split('@')[0].toLowerCase().trim(),
-        user.email.toLowerCase().trim(),
-        user.password_hash,
-        user.role,
-        user.bio,
-        user.headline,
-        user.profile_photo,
-        user.linkedin_url,
-        user.github_url,
-        user.skills
-      ]
-    );
-    return result.lastID;
+  async create(userData) {
+    const username = userData.username 
+      ? userData.username.toLowerCase().trim() 
+      : userData.email.split('@')[0].toLowerCase().trim();
+
+    const user = await User.create({
+      name: userData.name,
+      username: username,
+      email: userData.email.toLowerCase().trim(),
+      password_hash: userData.password_hash,
+      role: userData.role || 'student',
+      bio: userData.bio || 'Microsoft Student Club Member',
+      headline: userData.headline || 'Student Developer',
+      profile_photo: userData.profile_photo || '',
+      linkedin_url: userData.linkedin_url || '',
+      github_url: userData.github_url || '',
+      skills: userData.skills || '{}'
+    });
+
+    return user.id;
   }
 
   async updatePassword(id, passwordHash) {
-    return await dbRun("UPDATE users SET password_hash = ? WHERE id = ?", [passwordHash, id]);
+    return await User.update({ password_hash: passwordHash }, { where: { id } });
   }
 
   async updateLazyProfile(id, name, passwordHash) {
-    return await dbRun("UPDATE users SET name = ?, password_hash = ? WHERE id = ?", [name, passwordHash, id]);
+    return await User.update({ name, password_hash: passwordHash }, { where: { id } });
   }
 
   async updateRole(id, role) {
-    return await dbRun("UPDATE users SET role = ? WHERE id = ?", [role, id]);
+    return await User.update({ role }, { where: { id } });
   }
 
   async getAdminUsersDirectory() {
-    return await dbAll(`
-      SELECT u.id, u.name, u.email, u.role, u.bio, u.headline, u.profile_photo, u.linkedin_url, u.github_url, u.skills, u.created_at,
-             COUNT(c.id) as credentials_count,
-             SUM(CASE WHEN c.type = 'certificate' THEN 1 ELSE 0 END) as certificates_count,
-             SUM(CASE WHEN c.type = 'badge' THEN 1 ELSE 0 END) as badges_count
-      FROM users u
-      LEFT JOIN credentials c ON u.id = c.user_id OR LOWER(u.email) = LOWER(c.recipient_email)
-      GROUP BY u.id
-      ORDER BY u.id DESC
-    `);
+    const users = await User.findAll({
+      order: [['id', 'DESC']]
+    });
+
+    const userList = [];
+    for (const u of users) {
+      const uJson = u.toJSON();
+      const credentials = await Credential.findAll({
+        where: {
+          [Op.or]: [
+            { user_id: u.id },
+            { recipient_email: u.email.toLowerCase() }
+          ]
+        }
+      });
+      uJson.credentials_count = credentials.length;
+      uJson.certificates_count = credentials.filter(c => c.type === 'certificate').length;
+      uJson.badges_count = credentials.filter(c => c.type === 'badge').length;
+      userList.push(uJson);
+    }
+    return userList;
   }
 }
 

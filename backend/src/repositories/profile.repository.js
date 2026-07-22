@@ -1,44 +1,57 @@
-const { dbRun, dbAll, dbGet } = require("../config/database");
+const { User, ActivityLog, EmailSent } = require("../models");
 
 class ProfileRepository {
   async updateProfile(userId, name, bio, headline, profilePhoto, linkedinUrl, githubUrl, skillsJson) {
-    return await dbRun(
-      `UPDATE users 
-       SET name = COALESCE(?, name), bio = ?, headline = ?, profile_photo = COALESCE(?, profile_photo), linkedin_url = ?, github_url = ?, skills = ?
-       WHERE id = ?`,
-      [name, bio, headline, profilePhoto, linkedinUrl, githubUrl, skillsJson, userId]
-    );
+    const updateFields = { bio, headline, linkedin_url: linkedinUrl, github_url: githubUrl, skills: skillsJson };
+    if (name) updateFields.name = name;
+    if (profilePhoto) updateFields.profile_photo = profilePhoto;
+
+    return await User.update(updateFields, { where: { id: userId } });
   }
 
   async createActivityLog(userId, action) {
-    return await dbRun("INSERT INTO activity_logs (user_id, action) VALUES (?, ?)", [userId, action]);
+    return await ActivityLog.create({
+      user_id: userId,
+      action: action
+    });
   }
 
   async getActivityLogs(userId) {
-    return await dbAll(
-      "SELECT * FROM activity_logs WHERE user_id = ? ORDER BY timestamp DESC LIMIT 15",
-      [userId]
-    );
+    const logs = await ActivityLog.findAll({
+      where: { user_id: userId },
+      order: [['timestamp', 'DESC']],
+      limit: 15
+    });
+    return logs.map(l => l.toJSON());
   }
 
   async getAdminActivityLogs() {
-    return await dbAll(`
-      SELECT a.*, u.name as user_name, u.email as user_email
-      FROM activity_logs a
-      LEFT JOIN users u ON a.user_id = u.id
-      ORDER BY a.timestamp DESC
-    `);
+    const logs = await ActivityLog.findAll({
+      include: [{ model: User, attributes: ['name', 'email'] }],
+      order: [['timestamp', 'DESC']]
+    });
+    return logs.map(l => {
+      const json = l.toJSON();
+      json.user_name = json.User ? json.User.name : 'Unknown';
+      json.user_email = json.User ? json.User.email : 'Unknown';
+      return json;
+    });
   }
 
   async getSentEmails() {
-    return await dbAll("SELECT * FROM emails_sent ORDER BY sent_at DESC LIMIT 8");
+    const emails = await EmailSent.findAll({
+      order: [['sent_at', 'DESC']],
+      limit: 8
+    });
+    return emails.map(e => e.toJSON());
   }
 
   async logSentEmail(email, subject, body) {
-    return await dbRun(
-      "INSERT INTO emails_sent (recipient_email, subject, body) VALUES (?, ?, ?)",
-      [email, subject, body]
-    );
+    return await EmailSent.create({
+      recipient_email: email,
+      subject: subject,
+      body: body
+    });
   }
 }
 
