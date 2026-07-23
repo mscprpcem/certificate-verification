@@ -92,6 +92,7 @@ export default function App() {
   };
 
   const [dbEventsByYear, setDbEventsByYear] = useState(EVENTS_BY_YEAR);
+  const [allEventsList, setAllEventsList] = useState([]);
 
   const fetchPlatformData = async () => {
     try {
@@ -118,6 +119,9 @@ export default function App() {
       const res = await apiFetch('/api/credentials/events');
       if (res.ok) {
         const data = await res.json();
+        if (data && data.events && data.events.length > 0) {
+          setAllEventsList(prev => Array.from(new Set([...prev, ...data.events])));
+        }
         if (data && data.eventsByYear && Object.keys(data.eventsByYear).length > 0) {
           setDbEventsByYear(prev => ({
             ...prev,
@@ -127,6 +131,31 @@ export default function App() {
       }
     } catch (err) {
       console.error("Failed to load database events:", err);
+    }
+
+    // Direct Quiz Platform Client-Side Fallback fetch
+    try {
+      const quizPlatformUrls = [
+        "https://quiz.mscprpcem.tech/api/quizzes/public",
+        "http://localhost:5000/api/quizzes/public"
+      ];
+      for (const qUrl of quizPlatformUrls) {
+        try {
+          const qRes = await fetch(qUrl);
+          if (qRes.ok) {
+            const quizList = await qRes.json();
+            if (Array.isArray(quizList) && quizList.length > 0) {
+              const quizNames = quizList.map(q => q.event_name || q.title).filter(Boolean);
+              setAllEventsList(prev => Array.from(new Set([...prev, ...quizNames])));
+              break;
+            }
+          }
+        } catch (e) {
+          // quiet fallback
+        }
+      }
+    } catch (e) {
+      // quiet fallback
     }
   };
 
@@ -1476,18 +1505,27 @@ export default function App() {
                               }}
                             >
                               <option value="">Select Event</option>
-                              {((searchYear && (dbEventsByYear?.[searchYear] || EVENTS_BY_YEAR?.[searchYear])) 
-                                ? (dbEventsByYear[searchYear] || EVENTS_BY_YEAR[searchYear])
-                                : [
+                              {(() => {
+                                let list = allEventsList.length > 0 ? allEventsList : null;
+
+                                if (!list && searchYear) {
+                                  list = dbEventsByYear?.[searchYear] || EVENTS_BY_YEAR?.[searchYear];
+                                }
+
+                                if (!list || list.length === 0) {
+                                  list = [
                                     'Copilot Dev Days',
                                     'GitLit — The Diwali Code Fest',
                                     '.NET Conf 2025 Amravati',
                                     'Microsoft Azure Cloud Specialist Workshop',
                                     'AI & LLM Integration Bootcamp'
-                                  ]
-                              ).map((evt) => (
-                                <option key={evt} value={evt}>{evt}</option>
-                              ))}
+                                  ];
+                                }
+
+                                return Array.from(new Set(list)).map((evt) => (
+                                  <option key={evt} value={evt}>{evt}</option>
+                                ));
+                              })()}
                             </select>
                           </>
                         ) : (
