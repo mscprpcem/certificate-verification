@@ -11,6 +11,21 @@ import StudentDashboard from './pages/StudentDashboard';
 import BadgeCatalog from './pages/BadgeCatalog';
 import ActivityFeed from './pages/ActivityFeed';
 import NotFound from './pages/NotFound';
+const EVENTS_BY_YEAR = {
+  '2026': [
+    'Copilot Dev Days',
+    'Microsoft Azure Cloud Specialist Workshop',
+    'AI & LLM Integration Bootcamp'
+  ],
+  '2025': [
+    'GitLit — The Diwali Code Fest',
+    '.NET Conf 2025 Amravati'
+  ],
+  '2024': [
+    'Azure Community Day',
+    'GitHub Campus Workshop'
+  ]
+};
 
 export default function App() {
   const [user, setUser] = useState(null);
@@ -1444,7 +1459,7 @@ export default function App() {
                               }}
                             >
                               <option value="">Select Event</option>
-                              {((searchYear && EVENTS_BY_YEAR[searchYear]) 
+                              {((searchYear && EVENTS_BY_YEAR?.[searchYear]) 
                                 ? EVENTS_BY_YEAR[searchYear] 
                                 : [
                                     'Copilot Dev Days',
