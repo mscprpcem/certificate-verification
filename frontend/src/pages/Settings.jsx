@@ -1,4 +1,5 @@
 import React, { useState, useRef } from 'react';
+import { apiFetch } from '../config/api';
 
 export default function Settings({ user, onShowNotification, onProfileUpdate }) {
   const [activeTab, setActiveTab] = useState('profile'); // 'profile', 'social', 'security'
@@ -54,7 +55,7 @@ export default function Settings({ user, onShowNotification, onProfileUpdate }) 
     };
 
     try {
-      const res = await fetch('/api/profile/update', {
+      const res = await apiFetch('/api/profile/update', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)

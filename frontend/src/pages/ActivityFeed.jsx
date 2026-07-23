@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { apiFetch } from '../config/api';
 
 export default function ActivityFeed() {
   const [activities, setActivities] = useState([]);
@@ -10,7 +11,7 @@ export default function ActivityFeed() {
 
   const fetchActivity = async () => {
     try {
-      const res = await fetch('/api/profile/activity');
+      const res = await apiFetch('/api/profile/activity');
       if (res.ok) {
         const data = await res.json();
         setActivities(data);

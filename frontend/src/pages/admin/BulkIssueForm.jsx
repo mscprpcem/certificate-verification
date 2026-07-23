@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { apiFetch } from '../../config/api';
 
 export default function BulkIssueForm({ onShowNotification, onRefresh }) {
   const [csvContent, setCsvContent] = useState('');
@@ -13,7 +14,7 @@ export default function BulkIssueForm({ onShowNotification, onRefresh }) {
 
     setSubmitting(true);
     try {
-      const res = await fetch('/api/admin/bulk-issue', {
+      const res = await apiFetch('/api/admin/bulk-issue', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ csvContent })

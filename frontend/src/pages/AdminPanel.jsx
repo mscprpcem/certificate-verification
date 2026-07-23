@@ -263,7 +263,7 @@ export default function AdminPanel({ _user, onShowNotification, adminSubView, on
   const handleDeleteCatalogBadge = async (id, title) => {
     if (!window.confirm(`Are you sure you want to delete "${title}" from the Badge Directory?`)) return;
     try {
-      const res = await fetch(`/api/admin/badge-catalog/${id}`, {
+      const res = await apiFetch(`/api/admin/badge-catalog/${id}`, {
         method: 'DELETE'
       });
       if (res.ok) {
@@ -298,13 +298,13 @@ export default function AdminPanel({ _user, onShowNotification, adminSubView, on
     try {
       let res;
       if (editingCatalogBadge) {
-        res = await fetch(`/api/admin/badge-catalog/${editingCatalogBadge.id}`, {
+        res = await apiFetch(`/api/admin/badge-catalog/${editingCatalogBadge.id}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(badgeData)
         });
       } else {
-        res = await fetch('/api/admin/badge-catalog', {
+        res = await apiFetch('/api/admin/badge-catalog', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(badgeData)
@@ -332,7 +332,7 @@ export default function AdminPanel({ _user, onShowNotification, adminSubView, on
     }
 
     try {
-      const res = await fetch(`/api/admin/credentials/${id}`, {
+      const res = await apiFetch(`/api/admin/credentials/${id}`, {
         method: 'DELETE'
       });
 
@@ -352,7 +352,7 @@ export default function AdminPanel({ _user, onShowNotification, adminSubView, on
   // Change user role permissions (Roles & Perms view)
   const handleRoleChange = async (userId, newRole) => {
     try {
-      const res = await fetch(`/api/admin/users/${userId}/role`, {
+      const res = await apiFetch(`/api/admin/users/${userId}/role`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ role: newRole })
@@ -376,7 +376,7 @@ export default function AdminPanel({ _user, onShowNotification, adminSubView, on
     if (feedback === null) return; // cancel review
 
     try {
-      const res = await fetch(`/api/admin/verification-requests/${requestId}/review`, {
+      const res = await apiFetch(`/api/admin/verification-requests/${requestId}/review`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status, notes: feedback })
@@ -1203,7 +1203,7 @@ export default function AdminPanel({ _user, onShowNotification, adminSubView, on
                 }
 
                 try {
-                  const res = await fetch('/api/admin/templates', {
+                  const res = await apiFetch('/api/admin/templates', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ title, type, category, description, badge_icon: icon, skills_list: skills })
@@ -1319,7 +1319,7 @@ export default function AdminPanel({ _user, onShowNotification, adminSubView, on
                         onClick={async () => {
                           if (!window.confirm(`Delete design template "${temp.title}"?`)) return;
                           try {
-                            const res = await fetch(`/api/admin/templates/${temp.id}`, { method: 'DELETE' });
+                            const res = await apiFetch(`/api/admin/templates/${temp.id}`, { method: 'DELETE' });
                             if (res.ok) {
                               onShowNotification("Template design deleted.");
                               fetchTemplates();
@@ -1378,7 +1378,7 @@ export default function AdminPanel({ _user, onShowNotification, adminSubView, on
                 }
 
                 try {
-                  const res = await fetch('/api/admin/collections', {
+                  const res = await apiFetch('/api/admin/collections', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ name, description: desc, badge_ids: badgeIds })
@@ -1459,7 +1459,7 @@ export default function AdminPanel({ _user, onShowNotification, adminSubView, on
                         onClick={async () => {
                           if (!window.confirm(`Delete pathway "${col.name}"?`)) return;
                           try {
-                            const res = await fetch(`/api/admin/collections/${col.id}`, { method: 'DELETE' });
+                            const res = await apiFetch(`/api/admin/collections/${col.id}`, { method: 'DELETE' });
                             if (res.ok) {
                               onShowNotification("Pathway deleted.");
                               fetchCollections();

@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { apiFetch } from '../../config/api';
 
 export default function IssueCredentialForm({ onShowNotification, onRefresh, prefill }) {
   const [recipientName, setRecipientName] = useState('');
@@ -34,7 +35,7 @@ export default function IssueCredentialForm({ onShowNotification, onRefresh, pre
     };
 
     try {
-      const res = await fetch('/api/admin/credentials', {
+      const res = await apiFetch('/api/admin/credentials', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)

@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { apiFetch } from '../config/api';
 
 export default function PublicProfile({ username, onShowNotification }) {
   const [profileData, setProfileData] = useState(null);
@@ -13,7 +14,7 @@ export default function PublicProfile({ username, onShowNotification }) {
   const fetchProfile = async () => {
     try {
       setLoading(true);
-      const res = await fetch(`/api/u/${encodeURIComponent(username)}`);
+      const res = await apiFetch(`/api/u/${encodeURIComponent(username)}`);
       const data = await res.json();
 
       if (!res.ok) {

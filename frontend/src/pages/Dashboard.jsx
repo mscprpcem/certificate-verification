@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
+import { apiFetch } from '../config/api';
 
 export default function Dashboard({ user, onShowNotification }) {
   const [credentials, setCredentials] = useState([]);
@@ -12,7 +13,7 @@ export default function Dashboard({ user, onShowNotification }) {
 
   const fetchMyCredentials = async () => {
     try {
-      const res = await fetch('/api/credentials/my');
+      const res = await apiFetch('/api/credentials/my');
       if (res.ok) {
         const data = await res.json();
         setCredentials(data);
@@ -55,7 +56,7 @@ export default function Dashboard({ user, onShowNotification }) {
       onShowNotification("Verification link copied to clipboard!");
       
       // Increment share counter in backend
-      fetch('/api/credentials/increment-share', { method: 'POST' });
+      apiFetch('/api/credentials/increment-share', { method: 'POST' });
     } catch (err) {
       console.error("Failed to copy link:", err);
     }
@@ -154,7 +155,7 @@ export default function Dashboard({ user, onShowNotification }) {
     link.href = dataURL;
     link.click();
 
-    fetch('/api/credentials/increment-download', { method: 'POST' });
+    apiFetch('/api/credentials/increment-download', { method: 'POST' });
     onShowNotification('Certificate downloaded successfully!');
   };
 

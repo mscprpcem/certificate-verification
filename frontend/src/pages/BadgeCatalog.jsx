@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { apiFetch } from '../config/api';
 
 export default function BadgeCatalog() {
   const [badges, setBadges] = useState([]);
@@ -162,7 +163,7 @@ export default function BadgeCatalog() {
 
   const fetchBadges = async () => {
     try {
-      const res = await fetch('/api/credentials/badge-catalog');
+      const res = await apiFetch('/api/credentials/badge-catalog');
       if (res.ok) {
         const data = await res.json();
         if (Array.isArray(data) && data.length > 0) {

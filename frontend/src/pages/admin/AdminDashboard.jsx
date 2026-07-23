@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
+import { apiFetch } from '../../config/api';
 
 export default function AdminDashboard({ credentials = [], users = [], verificationLogs = [], onNavigateToSubView, _onShowNotification }) {
   const [dbMetrics, setDbMetrics] = useState(null);
 
   useEffect(() => {
-    fetch('/api/credentials/metrics')
+    apiFetch('/api/credentials/metrics')
       .then(res => res.json())
       .then(data => setDbMetrics(data))
       .catch(err => console.error("Failed to load dashboard live metrics:", err));
