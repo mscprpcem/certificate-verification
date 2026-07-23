@@ -381,30 +381,12 @@ export default function App() {
         return;
       }
 
-      if (nameType === 'event') {
-        if (!searchEvent || !searchYear) {
-          setVerifyResult({
-            success: false,
-            message: "Details not found. Please select Event Name and Year properly."
-          });
-          setTimeout(() => {
-            document.getElementById('verify-results-anchor')?.scrollIntoView({ behavior: 'smooth' });
-          }, 150);
-          return;
-        }
+      if (nameType === 'event' && searchEvent && searchYear) {
         url += `name=${encodeURIComponent(searchName.trim())}&type=${nameType}&year=${encodeURIComponent(searchYear)}&eventName=${encodeURIComponent(searchEvent)}`;
-      } else {
-        if (!searchTeamYear) {
-          setVerifyResult({
-            success: false,
-            message: "Details not found. Please select Team Year properly."
-          });
-          setTimeout(() => {
-            document.getElementById('verify-results-anchor')?.scrollIntoView({ behavior: 'smooth' });
-          }, 150);
-          return;
-        }
+      } else if (nameType === 'team' && searchTeamYear) {
         url += `name=${encodeURIComponent(searchName.trim())}&type=${nameType}&teamYear=${encodeURIComponent(searchTeamYear)}`;
+      } else {
+        url += `name=${encodeURIComponent(searchName.trim())}`;
       }
     }
 

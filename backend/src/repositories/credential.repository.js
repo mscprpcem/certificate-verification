@@ -28,6 +28,33 @@ class CredentialRepository {
     });
   }
 
+  async findByRecipientNameFirst(name) {
+    if (!name) return null;
+    const creds = await prisma.credential.findMany({
+      where: {
+        recipient_name: {
+          contains: name.trim(),
+          mode: 'insensitive'
+        }
+      },
+      orderBy: { created_at: 'desc' }
+    });
+    return creds.length > 0 ? creds[0] : null;
+  }
+
+  async findByRecipientName(name) {
+    if (!name) return [];
+    return await prisma.credential.findMany({
+      where: {
+        recipient_name: {
+          contains: name.trim(),
+          mode: 'insensitive'
+        }
+      },
+      orderBy: { created_at: 'desc' }
+    });
+  }
+
   async findByRecipientNameAndEvent(name, year, eventName) {
     const cleanName = (name || '').toLowerCase().trim();
     const cleanEvent = (eventName || '').toLowerCase().trim();

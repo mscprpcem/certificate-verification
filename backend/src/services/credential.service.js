@@ -20,21 +20,16 @@ class CredentialService {
         return { success: true, records: results };
       }
     } else if (name) {
-      if (type === "event") {
-        if (!name.trim() || !year || !year.trim() || !eventName || !eventName.trim()) {
-          const queryId = name || "unknown";
-          await credentialRepository.createVerificationLog(queryId, ip, ua, "not_found");
-          return { success: false, message: "Details not found. Please enter Name, Event Name, and Year properly." };
-        }
+      if (type === "event" && year && year.trim() && eventName && eventName.trim()) {
         matched = await credentialRepository.findByRecipientNameAndEvent(name, year, eventName);
-      } else if (type === "team") {
-        if (!name.trim() || !teamYear || !teamYear.trim()) {
-          const queryId = name || "unknown";
-          await credentialRepository.createVerificationLog(queryId, ip, ua, "not_found");
-          return { success: false, message: "Details not found. Please enter Name and Team Year properly." };
-        }
+      } else if (type === "team" && teamYear && teamYear.trim()) {
         matched = await credentialRepository.findByRecipientNameAndTeam(name, teamYear);
       } else {
+        const results = await credentialRepository.findByRecipientName(name);
+        if (results.length > 0) {
+          await credentialRepository.createVerificationLog(results[0].id, ip, ua, "success");
+          return { success: true, records: results, record: results[0] };
+        }
         matched = await credentialRepository.findByRecipientNameFirst(name);
       }
     } else if (url) {
@@ -58,11 +53,14 @@ class CredentialService {
     const resultsLog = [];
 
     for (const p of participants) {
-      if (!p.name || !p.email) continue;
+      if (!p.name) continue;
       if (p.disqualified) continue;
 
       const score = p.score || 0;
-      const normEmail = p.email.toLowerCase().trim();
+      const rawEmail = p.email || p.userEmail || p.studentEmail || p.contactEmail;
+      const normEmail = (rawEmail && rawEmail !== "N/A") 
+        ? rawEmail.toLowerCase().trim() 
+        : `${p.name.toLowerCase().replace(/[^a-z0-9]/g, "")}@mscprpcem.tech`;
 
       let credentialType = "certificate";
       let title = `${quizTitle} - Certificate of Participation`;
