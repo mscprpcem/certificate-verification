@@ -67,6 +67,16 @@ class UserRepository {
     });
   }
 
+  async updateXpAndLevel(id, xp, level) {
+    return await prisma.user.update({
+      where: { id: Number(id) },
+      data: {
+        xp: Number(xp),
+        level: level
+      }
+    });
+  }
+
   async getAdminUsersDirectory() {
     const users = await prisma.user.findMany({
       orderBy: { id: 'desc' },

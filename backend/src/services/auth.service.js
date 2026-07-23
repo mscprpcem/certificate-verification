@@ -163,6 +163,15 @@ class AuthService {
       }
     });
   }
+
+  calculateLevel(xp) {
+    if (!xp || xp <= 0) return 'Explorer';
+    if (xp >= 1000) return 'Ambassador';
+    if (xp >= 500) return 'Expert';
+    if (xp >= 250) return 'Innovator';
+    if (xp >= 100) return 'Contributor';
+    return 'Explorer';
+  }
 }
 
 module.exports = new AuthService();
