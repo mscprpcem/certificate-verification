@@ -116,6 +116,36 @@ class AuthController {
       res.json({ message: "Logged out" });
     });
   }
+
+  async createAdmin(req, res, next) {
+    const { name, email, password } = req.body;
+    if (!name || !email || !password) {
+      return res.status(400).json({ error: "Name, email, and password are required." });
+    }
+
+    if (password.length < 6) {
+      return res.status(400).json({ error: "Password must be at least 6 characters." });
+    }
+
+    try {
+      const admin = await authService.createAdmin(name, email, password, req.session.userId);
+      res.status(201).json({
+        message: "Admin account created successfully.",
+        admin: { id: admin.id, name: admin.name, username: admin.username, email: admin.email, role: admin.role }
+      });
+    } catch (err) {
+      res.status(400).json({ error: err.message });
+    }
+  }
+
+  async getAdmins(req, res, next) {
+    try {
+      const admins = await authService.getAllAdmins();
+      res.json(admins);
+    } catch (err) {
+      next(err);
+    }
+  }
 }
 
 module.exports = new AuthController();

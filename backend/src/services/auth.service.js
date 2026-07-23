@@ -3,6 +3,7 @@ const userRepository = require("../repositories/user.repository");
 const credentialRepository = require("../repositories/credential.repository");
 const profileRepository = require("../repositories/profile.repository");
 const authConfig = require("../config/auth");
+const prisma = require("../config/database");
 
 class AuthService {
   async register(name, email, password, username = null) {
@@ -99,6 +100,68 @@ class AuthService {
 
   async verifySession(userId) {
     return await userRepository.findById(userId);
+  }
+
+  async createAdmin(name, email, password, creatorId) {
+    if (!name || !email || !password) {
+      throw new Error("Name, email, and password are required.");
+    }
+
+    const normEmail = email.toLowerCase().trim();
+    const existing = await userRepository.findByEmail(normEmail);
+    if (existing) {
+      throw new Error("An account with this email already exists.");
+    }
+
+    const username = normEmail.split("@")[0].replace(/[^a-zA-Z0-9_-]/g, "").substring(0, 20).toLowerCase();
+
+    // Ensure username is unique
+    let finalUsername = username;
+    const existingUsername = await userRepository.findByUsername(username);
+    if (existingUsername) {
+      finalUsername = username + Math.floor(Math.random() * 999);
+    }
+
+    const hashedPassword = await bcrypt.hash(password, authConfig.bcryptSaltRounds);
+
+    const userId = await userRepository.create({
+      name,
+      username: finalUsername,
+      email: normEmail,
+      password_hash: hashedPassword,
+      role: "admin",
+      bio: "MSC PRPCEM Administrator",
+      headline: "Admin",
+      profile_photo: "",
+      linkedin_url: "",
+      github_url: "",
+      skills: "{}"
+    });
+
+    // Log the action
+    if (creatorId) {
+      await profileRepository.createActivityLog(
+        creatorId,
+        `Created new admin account: ${normEmail}`
+      );
+    }
+
+    return await userRepository.findById(userId);
+  }
+
+  async getAllAdmins() {
+    return await prisma.user.findMany({
+      where: { role: "admin" },
+      orderBy: { id: "desc" },
+      select: {
+        id: true,
+        name: true,
+        username: true,
+        email: true,
+        role: true,
+        created_at: true
+      }
+    });
   }
 }
 

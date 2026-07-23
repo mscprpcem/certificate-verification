@@ -5,10 +5,15 @@ const userController = require("../controllers/user.controller");
 const templateController = require("../controllers/template.controller");
 const badgeCatalogController = require("../controllers/badgeCatalog.controller");
 const profileController = require("../controllers/profile.controller");
+const authController = require("../controllers/auth.controller");
 const requireAdmin = require("../middleware/role.middleware")("admin");
 
 // Apply admin role middleware to all admin routes
 router.use(requireAdmin);
+
+// Admin Account Management
+router.post("/create-admin", authController.createAdmin);
+router.get("/admins", authController.getAdmins);
 
 // Credentials
 router.get("/credentials", credentialController.getAll);
@@ -46,3 +51,4 @@ router.post("/collections", templateController.createCollection);
 router.delete("/collections/:id", templateController.deleteCollection);
 
 module.exports = router;
+

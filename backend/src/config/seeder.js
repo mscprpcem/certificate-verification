@@ -3,18 +3,21 @@ const prisma = require("./database");
 
 async function seedInitialData() {
   try {
-    // 1. Seed Users
-    const userCount = await prisma.user.count();
-    if (userCount === 0) {
-      console.log("Seeding default PostgreSQL users via Prisma...");
-      const adminHash = await bcrypt.hash("admin123", 10);
-      const studentHash = await bcrypt.hash("password123", 10);
+    // 1. Seed Admin User (from env vars or defaults)
+    const adminCount = await prisma.user.count({ where: { role: "admin" } });
+    if (adminCount === 0) {
+      const adminEmail = (process.env.INITIAL_ADMIN_EMAIL || "admin@mscprpcem.tech").toLowerCase().trim();
+      const adminPassword = process.env.INITIAL_ADMIN_PASSWORD || "admin123";
+      const adminName = process.env.INITIAL_ADMIN_NAME || "MSC Club Admin";
+
+      console.log(`No admin found. Creating initial admin: ${adminEmail}`);
+      const adminHash = await bcrypt.hash(adminPassword, 10);
 
       await prisma.user.create({
         data: {
-          name: "MSC Club Admin",
+          name: adminName,
           username: "admin",
-          email: "admin@mscprpcem.tech",
+          email: adminEmail,
           password_hash: adminHash,
           role: "admin",
           bio: "MSC PRPCEM Administrator",
@@ -23,6 +26,14 @@ async function seedInitialData() {
           level: "Ambassador"
         }
       });
+
+      console.log(`Initial admin account created: ${adminEmail}`);
+    }
+
+    // 2. Seed Demo Student (only if no users exist besides admin)
+    const userCount = await prisma.user.count();
+    if (userCount <= 1) {
+      const studentHash = await bcrypt.hash("password123", 10);
 
       const amitSkills = JSON.stringify({
         "Cloud": 5,
@@ -49,7 +60,7 @@ async function seedInitialData() {
         }
       });
 
-      console.log("Users seeded successfully.");
+      console.log("Demo student seeded successfully.");
     }
 
     // 2. Seed Events & Participants

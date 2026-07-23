@@ -39,6 +39,14 @@ export default function AdminPanel({ _user, onShowNotification, adminSubView, on
   const [editingCatalogBadge, setEditingCatalogBadge] = useState(null);
   const [showAddCatalogModal, setShowAddCatalogModal] = useState(false);
 
+  // Admin Management State
+  const [adminsList, setAdminsList] = useState([]);
+  const [newAdminName, setNewAdminName] = useState('');
+  const [newAdminEmail, setNewAdminEmail] = useState('');
+  const [newAdminPassword, setNewAdminPassword] = useState('');
+  const [createAdminLoading, setCreateAdminLoading] = useState(false);
+  const [lastCreatedAdmin, setLastCreatedAdmin] = useState(null);
+
   useEffect(() => {
     fetchCredentials();
     fetchTemplates();
@@ -67,8 +75,62 @@ export default function AdminPanel({ _user, onShowNotification, adminSubView, on
     } else if (adminSubView === 'dashboard') {
       fetchUsers();
       fetchVerificationLogs();
+    } else if (adminSubView === 'admin-mgmt') {
+      fetchAdmins();
     }
   }, [adminSubView]);
+
+  const fetchAdmins = async () => {
+    try {
+      const res = await fetch('/api/admin/admins');
+      if (res.ok) {
+        const data = await res.json();
+        setAdminsList(data);
+      }
+    } catch (err) {
+      console.error('Failed to fetch admins:', err);
+    }
+  };
+
+  const handleCreateAdminSubmit = async (e) => {
+    e.preventDefault();
+    if (!newAdminName || !newAdminEmail || !newAdminPassword) {
+      onShowNotification('All fields are required to create an admin.');
+      return;
+    }
+    setCreateAdminLoading(true);
+    try {
+      const res = await fetch('/api/admin/create-admin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: newAdminName,
+          email: newAdminEmail,
+          password: newAdminPassword
+        })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        onShowNotification('✓ Admin account created successfully!');
+        setLastCreatedAdmin({
+          name: newAdminName,
+          email: newAdminEmail,
+          password: newAdminPassword
+        });
+        setNewAdminName('');
+        setNewAdminEmail('');
+        setNewAdminPassword('');
+        fetchAdmins();
+      } else {
+        onShowNotification(`Error: ${data.error || 'Failed to create admin'}`);
+      }
+    } catch (err) {
+      console.error(err);
+      onShowNotification('Error: Failed to connect to server');
+    } finally {
+      setCreateAdminLoading(false);
+    }
+  };
 
 
   const fetchCredentials = async () => {
@@ -356,6 +418,7 @@ export default function AdminPanel({ _user, onShowNotification, adminSubView, on
           { id: 'credentials', label: 'Credentials', icon: 'fa-file-contract' },
           { id: 'badges', label: 'Badge Catalog', icon: 'fa-award' },
           { id: 'users', label: 'Users Directory', icon: 'fa-users' },
+          { id: 'admin-mgmt', label: 'Admin Accounts', icon: 'fa-user-shield' },
           { id: 'requests', label: 'Requests', icon: 'fa-circle-check' },
           { id: 'templates', label: 'Templates', icon: 'fa-pen-to-square' },
           { id: 'reports', label: 'Reports', icon: 'fa-chart-pie' }
@@ -1781,6 +1844,181 @@ export default function AdminPanel({ _user, onShowNotification, adminSubView, on
                 <i className="fa-solid fa-cloud-arrow-up"></i> Commit & Save Configuration
               </button>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Admin Account Management View */}
+      {adminSubView === 'admin-mgmt' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
+            <div>
+              <h2 style={{ fontSize: '20px', fontWeight: 800, color: 'var(--text-main)', margin: '0 0 4px 0', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <i className="fa-solid fa-user-shield" style={{ color: '#2563eb' }}></i> Admin Account Management
+              </h2>
+              <p style={{ fontSize: '13px', color: 'var(--text-muted)', margin: 0 }}>
+                Create new administrator credentials and manage chapter admins. Only existing admins can create new admin accounts.
+              </p>
+            </div>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: '24px' }}>
+            {/* Create Admin Form */}
+            <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '16px', padding: '24px', boxShadow: '0 4px 12px rgba(0,0,0,0.03)' }}>
+              <h3 style={{ fontSize: '16px', fontWeight: 800, color: 'var(--text-main)', marginTop: 0, marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <i className="fa-solid fa-user-plus" style={{ color: '#10b981' }}></i> Create New Admin Account
+              </h3>
+
+              {lastCreatedAdmin && (
+                <div style={{ background: '#ecfdf5', border: '1px solid #a7f3d0', borderRadius: '12px', padding: '16px', marginBottom: '20px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#065f46', fontWeight: 800, fontSize: '13px', marginBottom: '8px' }}>
+                    <i className="fa-solid fa-circle-check"></i> Admin Account Created!
+                  </div>
+                  <p style={{ fontSize: '12px', color: '#047857', margin: '0 0 10px 0' }}>
+                    Share these credentials with the new admin so they can log in:
+                  </p>
+                  <div style={{ background: '#ffffff', borderRadius: '8px', padding: '12px', fontSize: '12px', fontFamily: 'monospace', border: '1px solid #6ee7b7', color: '#1e293b' }}>
+                    <div><strong>Name:</strong> {lastCreatedAdmin.name}</div>
+                    <div><strong>Email:</strong> {lastCreatedAdmin.email}</div>
+                    <div><strong>Password:</strong> {lastCreatedAdmin.password}</div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setLastCreatedAdmin(null)}
+                    style={{ marginTop: '10px', background: 'none', border: 'none', color: '#059669', fontSize: '11px', fontWeight: 700, cursor: 'pointer', textDecoration: 'underline' }}
+                  >
+                    Dismiss Credentials Banner
+                  </button>
+                </div>
+              )}
+
+              <form onSubmit={handleCreateAdminSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: 'var(--text-main)', marginBottom: '6px' }}>
+                    Full Name <span style={{ color: '#ef4444' }}>*</span>
+                  </label>
+                  <input
+                    type="text"
+                    className="form-input"
+                    placeholder="e.g. Rahul Sharma"
+                    value={newAdminName}
+                    onChange={(e) => setNewAdminName(e.target.value)}
+                    required
+                    style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #cbd5e1' }}
+                  />
+                </div>
+
+                <div>
+                  <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: 'var(--text-main)', marginBottom: '6px' }}>
+                    Email Address <span style={{ color: '#ef4444' }}>*</span>
+                  </label>
+                  <input
+                    type="email"
+                    className="form-input"
+                    placeholder="e.g. rahul@mscprpcem.tech"
+                    value={newAdminEmail}
+                    onChange={(e) => setNewAdminEmail(e.target.value)}
+                    required
+                    style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #cbd5e1' }}
+                  />
+                </div>
+
+                <div>
+                  <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: 'var(--text-main)', marginBottom: '6px' }}>
+                    Password <span style={{ color: '#ef4444' }}>*</span>
+                  </label>
+                  <input
+                    type="text"
+                    className="form-input"
+                    placeholder="Set initial password (min 6 chars)"
+                    value={newAdminPassword}
+                    onChange={(e) => setNewAdminPassword(e.target.value)}
+                    required
+                    minLength={6}
+                    style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #cbd5e1' }}
+                  />
+                  <span style={{ fontSize: '11px', color: 'var(--text-muted)', display: 'block', marginTop: '4px' }}>
+                    The new admin can change their password after logging in.
+                  </span>
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={createAdminLoading}
+                  style={{
+                    padding: '12px',
+                    borderRadius: '8px',
+                    background: 'linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)',
+                    color: '#ffffff',
+                    border: 'none',
+                    fontWeight: 800,
+                    fontSize: '13px',
+                    cursor: createAdminLoading ? 'wait' : 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '8px',
+                    boxShadow: '0 4px 12px rgba(37,99,235,0.25)',
+                    opacity: createAdminLoading ? 0.7 : 1
+                  }}
+                >
+                  {createAdminLoading ? (
+                    <>
+                      <i className="fa-solid fa-spinner fa-spin"></i> Creating Admin...
+                    </>
+                  ) : (
+                    <>
+                      <i className="fa-solid fa-user-shield"></i> Create Admin Account
+                    </>
+                  )}
+                </button>
+              </form>
+            </div>
+
+            {/* Admin Users Directory List */}
+            <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '16px', padding: '24px', boxShadow: '0 4px 12px rgba(0,0,0,0.03)' }}>
+              <h3 style={{ fontSize: '16px', fontWeight: 800, color: 'var(--text-main)', marginTop: 0, marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <i className="fa-solid fa-users-gear" style={{ color: '#2563eb' }}></i> Existing Chapter Administrators ({adminsList.length})
+              </h3>
+
+              {adminsList.length === 0 ? (
+                <p style={{ fontSize: '13px', color: 'var(--text-muted)' }}>Loading administrators...</p>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', maxHeight: '420px', overflowY: 'auto' }}>
+                  {adminsList.map((adm) => (
+                    <div
+                      key={adm.id}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        padding: '14px 16px',
+                        borderRadius: '12px',
+                        background: '#f8fafc',
+                        border: '1px solid #e2e8f0'
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                        <div style={{ width: '38px', height: '38px', borderRadius: '10px', background: 'linear-gradient(135deg, #2563eb 0%, #1e40af 100%)', color: '#ffffff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: '15px' }}>
+                          {adm.name ? adm.name.charAt(0).toUpperCase() : 'A'}
+                        </div>
+                        <div>
+                          <div style={{ fontWeight: 800, fontSize: '13px', color: 'var(--text-main)' }}>
+                            {adm.name}
+                          </div>
+                          <div style={{ fontSize: '11.5px', color: 'var(--text-muted)' }}>
+                            {adm.email}
+                          </div>
+                        </div>
+                      </div>
+                      <span style={{ fontSize: '11px', fontWeight: 800, padding: '4px 10px', borderRadius: '20px', background: '#dbeafe', color: '#1e40af' }}>
+                        <i className="fa-solid fa-shield-halved" style={{ marginRight: '4px' }}></i> Admin
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}

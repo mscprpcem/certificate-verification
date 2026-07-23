@@ -101,13 +101,8 @@ export default function App() {
     let targetView = view;
     let path = customPath;
 
-    if (view === 'register') {
+    if (view === 'register' || view === 'auth' || view === 'login') {
       targetView = 'auth';
-      setAuthTab('register');
-      if (!path) path = '/register';
-    } else if (view === 'auth' || view === 'login') {
-      targetView = 'auth';
-      setAuthTab('login');
       if (!path) path = '/login';
     }
 
@@ -1208,14 +1203,6 @@ export default function App() {
           <>
             {currentView === 'auth' && (
               <Auth
-                initialTab={authTab}
-                onTabChange={(tab) => {
-                  setAuthTab(tab);
-                  const targetPath = tab === 'register' ? '/register' : '/login';
-                  if (window.location.pathname !== targetPath) {
-                    window.history.pushState({}, '', targetPath);
-                  }
-                }}
                 onLoginSuccess={(usr) => { 
                   setUser(usr); 
                   fetchMyWallet(); 
