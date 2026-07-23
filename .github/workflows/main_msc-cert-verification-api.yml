@@ -45,7 +45,6 @@ jobs:
           path: |
             backend
             !backend/node_modules
-            !backend/generated
 
   deploy:
     runs-on: ubuntu-latest

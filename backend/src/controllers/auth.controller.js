@@ -65,9 +65,15 @@ class AuthController {
       req.session.name = user.name;
       req.session.role = user.role;
 
-      res.json({
-        message: "Login successful",
-        user: { id: user.id, name: user.name, email: user.email, role: user.role }
+      req.session.save((sessionErr) => {
+        if (sessionErr) {
+          console.error("Session save error:", sessionErr);
+          return res.status(500).json({ error: "Failed to establish session." });
+        }
+        res.json({
+          message: "Login successful",
+          user: { id: user.id, name: user.name, email: user.email, role: user.role }
+        });
       });
     } catch (err) {
       res.status(400).json({ error: err.message });
@@ -88,9 +94,15 @@ class AuthController {
       req.session.name = user.name;
       req.session.role = user.role;
 
-      res.json({
-        message: "Lazy login successful, wallet linked.",
-        user: { id: user.id, name: user.name, email: user.email, role: user.role }
+      req.session.save((sessionErr) => {
+        if (sessionErr) {
+          console.error("Session save error:", sessionErr);
+          return res.status(500).json({ error: "Failed to establish session." });
+        }
+        res.json({
+          message: "Lazy login successful, wallet linked.",
+          user: { id: user.id, name: user.name, email: user.email, role: user.role }
+        });
       });
     } catch (err) {
       res.status(500).json({ error: err.message });

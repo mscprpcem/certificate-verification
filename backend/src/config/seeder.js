@@ -29,7 +29,14 @@ function ensureDbSchema() {
 }
 
 async function seedInitialData() {
-  ensureDbSchema();
+  try {
+    // Check if database tables exist
+    await prisma.user.count();
+  } catch (dbCheckErr) {
+    console.log("Database tables missing or uninitialized. Syncing schema...");
+    ensureDbSchema();
+  }
+
   try {
     // 1. Seed Admin User (from env vars or defaults)
     const adminCount = await prisma.user.count({ where: { role: "admin" } });
