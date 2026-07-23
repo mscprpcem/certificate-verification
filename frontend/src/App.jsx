@@ -13,11 +13,19 @@ import ActivityFeed from './pages/ActivityFeed';
 import NotFound from './pages/NotFound';
 const EVENTS_BY_YEAR = {
   '2026': [
+    'Spark26 Quiz',
+    'Amit',
+    'test',
+    'BBBBB',
+    'ABCD',
+    'aaaaaaaaaaaaa',
     'Copilot Dev Days',
     'Microsoft Azure Cloud Specialist Workshop',
     'AI & LLM Integration Bootcamp'
   ],
   '2025': [
+    'Spark26 Quiz',
+    'Amit',
     'GitLit — The Diwali Code Fest',
     '.NET Conf 2025 Amravati'
   ],
@@ -1514,6 +1522,12 @@ export default function App() {
 
                                 if (!list || list.length === 0) {
                                   list = [
+                                    'Spark26 Quiz',
+                                    'Amit',
+                                    'test',
+                                    'BBBBB',
+                                    'ABCD',
+                                    'aaaaaaaaaaaaa',
                                     'Copilot Dev Days',
                                     'GitLit — The Diwali Code Fest',
                                     '.NET Conf 2025 Amravati',

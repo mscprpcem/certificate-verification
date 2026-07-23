@@ -273,6 +273,27 @@ async function seedInitialData() {
         await prisma.badgeCatalog.create({ data: b });
       }
     }
+
+    // 5. Seed Design Templates for Quiz Events
+    const templateCount = await prisma.template.count();
+    if (templateCount === 0) {
+      console.log("Seeding default event templates via Prisma...");
+      const defaultTemplates = [
+        { title: "Spark26 Quiz", type: "certificate", category: "Event", description: "Spark26 Quiz event certificate.", badge_icon: "fa-award", skills_list: "Problem Solving, Technical Knowledge" },
+        { title: "Amit", type: "certificate", category: "Event", description: "Amit event certificate.", badge_icon: "fa-award", skills_list: "Problem Solving, Technical Knowledge" },
+        { title: "test", type: "certificate", category: "Event", description: "Test event certificate.", badge_icon: "fa-award", skills_list: "Problem Solving, Technical Knowledge" },
+        { title: "BBBBB", type: "certificate", category: "Event", description: "BBBBB event certificate.", badge_icon: "fa-award", skills_list: "Problem Solving, Technical Knowledge" },
+        { title: "ABCD", type: "certificate", category: "Event", description: "ABCD event certificate.", badge_icon: "fa-award", skills_list: "Problem Solving, Technical Knowledge" },
+        { title: "aaaaaaaaaaaaa", type: "certificate", category: "Event", description: "Aaaaaaaaaaaaa event certificate.", badge_icon: "fa-award", skills_list: "Problem Solving, Technical Knowledge" },
+        { title: "Copilot Dev Days", type: "certificate", category: "Event", description: "Copilot Dev Days event certificate.", badge_icon: "fa-award", skills_list: "GitHub Copilot, AI Development" },
+        { title: "Microsoft Azure Cloud Specialist Workshop", type: "certificate", category: "Event", description: "Azure Cloud Specialist Workshop.", badge_icon: "fa-award", skills_list: "Cloud Computing, Azure" },
+        { title: "AI & LLM Integration Bootcamp", type: "certificate", category: "Event", description: "AI & LLM Integration Bootcamp.", badge_icon: "fa-award", skills_list: "Artificial Intelligence, LLMs" }
+      ];
+
+      for (const t of defaultTemplates) {
+        await prisma.template.create({ data: t });
+      }
+    }
   } catch (err) {
     console.warn("Seeding warning:", err.message);
   }

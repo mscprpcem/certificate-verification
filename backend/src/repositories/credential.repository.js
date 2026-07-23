@@ -90,6 +90,12 @@ class CredentialRepository {
 
     // Default curated & template events
     const defaultEvents = [
+      "Spark26 Quiz",
+      "Amit",
+      "test",
+      "BBBBB",
+      "ABCD",
+      "aaaaaaaaaaaaa",
       "Copilot Dev Days",
       "GitLit — The Diwali Code Fest",
       ".NET Conf 2025 Amravati",
