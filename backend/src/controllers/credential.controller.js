@@ -109,6 +109,15 @@ class CredentialController {
     }
   }
 
+  async getEvents(req, res, next) {
+    try {
+      const data = await credentialRepository.getPublicEvents();
+      res.json(data);
+    } catch (err) {
+      next(err);
+    }
+  }
+
   // Claim requests
   async submitClaim(req, res, next) {
     try {

@@ -91,6 +91,8 @@ export default function App() {
     setTimeout(() => setNotification(''), 4000);
   };
 
+  const [dbEventsByYear, setDbEventsByYear] = useState(EVENTS_BY_YEAR);
+
   const fetchPlatformData = async () => {
     try {
       const res = await apiFetch('/api/credentials/metrics');
@@ -110,6 +112,21 @@ export default function App() {
       }
     } catch (err) {
       console.error("Failed to load recent credentials:", err);
+    }
+
+    try {
+      const res = await apiFetch('/api/credentials/events');
+      if (res.ok) {
+        const data = await res.json();
+        if (data && data.eventsByYear && Object.keys(data.eventsByYear).length > 0) {
+          setDbEventsByYear(prev => ({
+            ...prev,
+            ...data.eventsByYear
+          }));
+        }
+      }
+    } catch (err) {
+      console.error("Failed to load database events:", err);
     }
   };
 
@@ -1459,8 +1476,8 @@ export default function App() {
                               }}
                             >
                               <option value="">Select Event</option>
-                              {((searchYear && EVENTS_BY_YEAR?.[searchYear]) 
-                                ? EVENTS_BY_YEAR[searchYear] 
+                              {((searchYear && (dbEventsByYear?.[searchYear] || EVENTS_BY_YEAR?.[searchYear])) 
+                                ? (dbEventsByYear[searchYear] || EVENTS_BY_YEAR[searchYear])
                                 : [
                                     'Copilot Dev Days',
                                     'GitLit — The Diwali Code Fest',

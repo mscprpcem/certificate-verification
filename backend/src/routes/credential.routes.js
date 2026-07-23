@@ -8,6 +8,7 @@ const requireAuth = require("../middleware/auth.middleware");
 router.get("/verify", credentialController.verify);
 router.get("/suggest", credentialController.suggest);
 router.get("/recent", credentialController.getRecent);
+router.get("/events", credentialController.getEvents);
 router.get("/badge-catalog", badgeCatalogController.getPublicBadges);
 router.get("/:id/render", credentialController.renderSVG);
 router.get("/:id/svg", credentialController.renderSVG);

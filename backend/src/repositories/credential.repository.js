@@ -38,24 +38,87 @@ class CredentialRepository {
         recipient_name: {
           equals: cleanName,
           mode: 'insensitive'
-        },
-        OR: [
-          { type: 'certificate' },
-          { category: { contains: 'Event', mode: 'insensitive' } }
-        ]
+        }
       },
       orderBy: { created_at: 'desc' }
     });
 
+    if (creds.length === 0) return null;
+
+    let matched = creds;
+
+    // Filter by Event Name matching title or domain
     if (cleanEvent) {
-      const match = creds.find(c => (c.title || '').toLowerCase().includes(cleanEvent));
-      if (match) return match;
+      matched = matched.filter(c => 
+        (c.title || '').toLowerCase().includes(cleanEvent) ||
+        (c.domain || '').toLowerCase().includes(cleanEvent)
+      );
     }
-    if (cleanYear) {
-      const match = creds.find(c => (c.issue_date || '').includes(cleanYear) || (c.id || '').includes(cleanYear));
-      if (match) return match;
+
+    // Filter by Year matching issue_date or created_at
+    if (cleanYear && matched.length > 0) {
+      const yearMatches = matched.filter(c => 
+        (c.issue_date || '').includes(cleanYear) ||
+        new Date(c.created_at).getFullYear().toString() === cleanYear
+      );
+      if (yearMatches.length > 0) {
+        matched = yearMatches;
+      }
     }
-    return creds[0] || null;
+
+    return matched.length > 0 ? matched[0] : null;
+  }
+
+  async getPublicEvents() {
+    const creds = await prisma.credential.findMany({
+      select: {
+        title: true,
+        domain: true,
+        issue_date: true,
+        created_at: true
+      }
+    });
+
+    const templates = await prisma.template.findMany({
+      select: {
+        title: true
+      }
+    });
+
+    const eventsByYear = {};
+    const allEventsSet = new Set();
+
+    templates.forEach(t => {
+      if (t.title) allEventsSet.add(t.title);
+    });
+
+    creds.forEach(c => {
+      const name = c.title || c.domain;
+      if (!name) return;
+
+      allEventsSet.add(name);
+
+      let yr = "2026";
+      if (c.issue_date) {
+        const yearMatch = c.issue_date.match(/\b(202\d)\b/);
+        if (yearMatch) yr = yearMatch[1];
+      } else if (c.created_at) {
+        yr = new Date(c.created_at).getFullYear().toString();
+      }
+
+      if (!eventsByYear[yr]) eventsByYear[yr] = new Set();
+      eventsByYear[yr].add(name);
+    });
+
+    const formattedEventsByYear = {};
+    Object.keys(eventsByYear).forEach(yr => {
+      formattedEventsByYear[yr] = Array.from(eventsByYear[yr]);
+    });
+
+    return {
+      events: Array.from(allEventsSet),
+      eventsByYear: formattedEventsByYear
+    };
   }
 
   async findByRecipientNameAndTeam(name, year) {
