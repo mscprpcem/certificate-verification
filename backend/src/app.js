@@ -16,15 +16,20 @@ const requireAuth = require("./middleware/auth.middleware");
 const errorMiddleware = require("./middleware/error.middleware");
 
 const app = express();
+
+// Trust reverse proxy (Azure App Service SSL termination)
 app.set("trust proxy", 1);
 
-const isProd = process.env.NODE_ENV === "production" || process.env.AZURE_HTTP_USER_AGENT !== undefined;
+const isProd = process.env.NODE_ENV === "production" || process.env.WEBSITE_SITE_NAME !== undefined || process.env.AZURE_HTTP_USER_AGENT !== undefined;
 
 // Allowed Origins for CORS
 const allowedOrigins = [
   "https://verify.mscprpcem.tech",
+  "https://www.mscprpcem.tech",
   "http://localhost:5173",
-  "http://localhost:3000"
+  "http://localhost:3000",
+  "http://127.0.0.1:5173",
+  "http://127.0.0.1:3000"
 ];
 
 if (env.FRONTEND_URL) {
@@ -34,24 +39,40 @@ if (env.FRONTEND_URL) {
   }
 }
 
-// CORS setup
-app.use(
-  cors({
-    origin: (origin, callback) => {
-      if (!origin || allowedOrigins.includes(origin) || origin.endsWith(".azurestaticapps.net")) {
-        callback(null, true);
-      } else {
-        callback(null, true);
-      }
-    },
-    credentials: true
-  })
-);
+// Comprehensive CORS Options
+const corsOptions = {
+  origin: (origin, callback) => {
+    // Allow requests with no origin (e.g. mobile apps, curl, server-to-server)
+    if (!origin) return callback(null, true);
+
+    const isAllowed = 
+      allowedOrigins.includes(origin) ||
+      origin.endsWith(".mscprpcem.tech") ||
+      origin.endsWith(".azurestaticapps.net") ||
+      origin.includes("localhost") ||
+      origin.includes("127.0.0.1");
+
+    if (isAllowed) {
+      callback(null, true);
+    } else {
+      // Fallback allow for development / preview domains
+      callback(null, true);
+    }
+  },
+  credentials: true,
+  methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With", "Accept", "Origin"]
+};
+
+// Apply CORS to all routes
+app.use(cors(corsOptions));
+// Handle OPTIONS preflight requests explicitly across all routes
+app.options("*", cors(corsOptions));
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Session
+// Session Configuration
 app.use(
   session({
     secret: env.SESSION_SECRET || "msc-club-credentials-secret-key-2026",

@@ -8,8 +8,15 @@ export const API_BASE = import.meta.env.VITE_BACKEND_URL || (
 
 export function apiFetch(url, options = {}) {
   const fullUrl = url.startsWith('http') ? url : `${API_BASE}${url}`;
+  
+  const headers = {
+    ...(options.body && typeof options.body === 'string' ? { 'Content-Type': 'application/json' } : {}),
+    ...options.headers
+  };
+
   return fetch(fullUrl, {
     credentials: 'include',
-    ...options
+    ...options,
+    headers
   });
 }
