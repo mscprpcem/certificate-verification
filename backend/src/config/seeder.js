@@ -14,6 +14,10 @@ function ensureDbSchema() {
       return;
     }
     const schemaPath = path.join(__dirname, "../../prisma/schema.prisma");
+    execSync(`node "${prismaCliPath}" generate --schema="${schemaPath}"`, {
+      stdio: "inherit",
+      env: process.env
+    });
     execSync(`node "${prismaCliPath}" db push --schema="${schemaPath}" --accept-data-loss`, {
       stdio: "inherit",
       env: process.env
