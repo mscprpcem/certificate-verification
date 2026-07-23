@@ -102,28 +102,39 @@ class CredentialRepository {
       if (t.title) allEventsSet.add(t.title);
     });
 
-    // Fetch live & completed quizzes from Quiz Platform if accessible
-    try {
-      const quizPlatformUrl = process.env.QUIZ_PLATFORM_URL || "http://localhost:5000";
-      const quizRes = await fetch(`${quizPlatformUrl}/api/quizzes/public`);
-      if (quizRes.ok) {
-        const quizzes = await quizRes.json();
-        if (Array.isArray(quizzes)) {
-          quizzes.forEach(q => {
-            const name = q.event_name || q.title;
-            if (name) allEventsSet.add(name);
-          });
+    // Fetch live & completed quizzes from Quiz Platform URLs
+    const quizUrls = [
+      process.env.QUIZ_PLATFORM_URL,
+      "https://quiz.mscprpcem.tech",
+      "http://localhost:5000",
+      "http://127.0.0.1:5000"
+    ].filter(Boolean);
+
+    for (const quizUrl of quizUrls) {
+      try {
+        const cleanUrl = quizUrl.replace(/\/$/, "");
+        const quizRes = await fetch(`${cleanUrl}/api/quizzes/public`, { signal: AbortSignal.timeout(3000) });
+        if (quizRes.ok) {
+          const quizzes = await quizRes.json();
+          if (Array.isArray(quizzes)) {
+            quizzes.forEach(q => {
+              const name = q.event_name || q.title;
+              if (name && name.trim()) allEventsSet.add(name.trim());
+            });
+            break;
+          }
         }
+      } catch (e) {
+        // Quiet fallback to next URL
       }
-    } catch (e) {
-      // Quiz platform quiet fallback
     }
 
     creds.forEach(c => {
-      const name = c.title || c.domain;
-      if (!name) return;
+      const titleName = c.title ? c.title.trim() : null;
+      const domainName = c.domain ? c.domain.trim() : null;
 
-      allEventsSet.add(name);
+      if (titleName) allEventsSet.add(titleName);
+      if (domainName) allEventsSet.add(domainName);
 
       let yr = "2026";
       if (c.issue_date) {
@@ -134,7 +145,8 @@ class CredentialRepository {
       }
 
       if (!eventsByYear[yr]) eventsByYear[yr] = new Set();
-      eventsByYear[yr].add(name);
+      if (titleName) eventsByYear[yr].add(titleName);
+      if (domainName) eventsByYear[yr].add(domainName);
     });
 
     // Ensure all synced events are present in current and default year keys
