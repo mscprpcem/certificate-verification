@@ -5,17 +5,19 @@ const { seedInitialData } = require("./config/seeder");
 
 const PORT = env.PORT || 3000;
 
-// Initialize Database & Listen
+// Start Express server immediately so Azure health checks succeed & 503 is prevented
+app.listen(PORT, "0.0.0.0", () => {
+  console.log(`Server is running on port ${PORT}`);
+});
+
+// Connect to Database & Seed asynchronously
 prisma
   .$connect()
   .then(async () => {
     console.log("Connected to PostgreSQL via Prisma ORM.");
     await seedInitialData();
-
-    app.listen(PORT, "0.0.0.0", () => {
-      console.log(`Server is running on port ${PORT}`);
-    });
   })
   .catch((err) => {
-    console.error("Database connection failed:", err);
+    console.error("Database connection warning:", err.message || err);
   });
+
