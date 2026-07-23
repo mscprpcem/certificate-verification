@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
 import './App.css';
+import { apiFetch } from './config/api';
 import Auth from './pages/Auth';
 import MyCredentials from './pages/MyCredentials';
 import BadgeDetail from './pages/BadgeDetail';
@@ -77,7 +78,7 @@ export default function App() {
 
   const fetchPlatformData = async () => {
     try {
-      const res = await fetch('/api/credentials/metrics');
+      const res = await apiFetch('/api/credentials/metrics');
       if (res.ok) {
         const data = await res.json();
         setPlatformMetrics(data);
@@ -87,7 +88,7 @@ export default function App() {
     }
 
     try {
-      const res = await fetch('/api/credentials/recent');
+      const res = await apiFetch('/api/credentials/recent');
       if (res.ok) {
         const data = await res.json();
         setRecentVerified(data);
@@ -231,7 +232,7 @@ export default function App() {
 
   const checkSession = async () => {
     try {
-      const res = await fetch('/api/auth/me');
+      const res = await apiFetch('/api/auth/me');
       if (res.ok) {
         const data = await res.json();
         if (data.user) {
@@ -246,7 +247,7 @@ export default function App() {
 
   const fetchMyWallet = async () => {
     try {
-      const res = await fetch('/api/credentials/my');
+      const res = await apiFetch('/api/credentials/my');
       if (res.ok) {
         const data = await res.json();
         setCredentials(data);
@@ -263,7 +264,7 @@ export default function App() {
   const confirmLogout = async () => {
     setShowLogoutModal(false);
     try {
-      await fetch('/api/auth/logout');
+      await apiFetch('/api/auth/logout');
       setUser(null);
       setCredentials([]);
       setSelectedCred(null);
@@ -339,7 +340,7 @@ export default function App() {
     }
 
     try {
-      const res = await fetch(url);
+      const res = await apiFetch(url);
       const data = await res.json();
 
       if (res.ok) {
@@ -364,7 +365,7 @@ export default function App() {
     }
 
     try {
-      const res = await fetch(`/api/credentials/suggest?query=${encodeURIComponent(value)}&type=${nameType}`);
+      const res = await apiFetch(`/api/credentials/suggest?query=${encodeURIComponent(value)}&type=${nameType}`);
       if (res.ok) {
         const data = await res.json();
         setNameSuggestions(data);
@@ -378,7 +379,7 @@ export default function App() {
   // Continue with OTP lazy registration submit
   const handleLazyAuthSubmit = async () => {
     try {
-      const res = await fetch('/api/auth/lazy-login', {
+      const res = await apiFetch('/api/auth/lazy-login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: lazyEmail })
@@ -391,7 +392,7 @@ export default function App() {
         showNotification("Digital Wallet linked successfully!");
         
         // Fetch student's wallet
-        const walletRes = await fetch('/api/credentials/my');
+        const walletRes = await apiFetch('/api/credentials/my');
         if (walletRes.ok) {
           const walletData = await walletRes.json();
           setCredentials(walletData);
@@ -558,7 +559,7 @@ export default function App() {
     try {
       await navigator.clipboard.writeText(verifyUrl);
       showNotification("Credential verify link copied!");
-      fetch('/api/credentials/increment-share', { method: 'POST' });
+      apiFetch('/api/credentials/increment-share', { method: 'POST' });
     } catch (err) {
       console.error("Copy link failed:", err);
     }
@@ -807,7 +808,7 @@ export default function App() {
     link.href = dataURL;
     link.click();
 
-    fetch('/api/credentials/increment-download', { method: 'POST' });
+    apiFetch('/api/credentials/increment-download', { method: 'POST' });
     showNotification('Downloaded certificate successfully!');
   };
 

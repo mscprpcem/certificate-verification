@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { apiFetch } from '../config/api';
 import AdminDashboard from './admin/AdminDashboard';
 import IssueCredentialForm from './admin/IssueCredentialForm';
 import BulkIssueForm from './admin/BulkIssueForm';
@@ -82,7 +83,7 @@ export default function AdminPanel({ _user, onShowNotification, adminSubView, on
 
   const fetchAdmins = async () => {
     try {
-      const res = await fetch('/api/admin/admins');
+      const res = await apiFetch('/api/admin/admins');
       if (res.ok) {
         const data = await res.json();
         setAdminsList(data);
@@ -100,7 +101,7 @@ export default function AdminPanel({ _user, onShowNotification, adminSubView, on
     }
     setCreateAdminLoading(true);
     try {
-      const res = await fetch('/api/admin/create-admin', {
+      const res = await apiFetch('/api/admin/create-admin', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -135,13 +136,13 @@ export default function AdminPanel({ _user, onShowNotification, adminSubView, on
 
   const fetchCredentials = async () => {
     try {
-      const res = await fetch('/api/admin/credentials');
+      const res = await apiFetch('/api/admin/credentials');
       if (res.ok) {
         const data = await res.json();
         setCredentials(data);
       }
     } catch (err) {
-      console.error("Failed to load admin credentials:", err);
+      console.error(err);
     } finally {
       setLoading(false);
     }
@@ -150,13 +151,13 @@ export default function AdminPanel({ _user, onShowNotification, adminSubView, on
   const fetchUsers = async () => {
     setSubLoading(true);
     try {
-      const res = await fetch('/api/admin/users');
+      const res = await apiFetch('/api/admin/users');
       if (res.ok) {
         const data = await res.json();
         setUsers(data);
       }
     } catch (err) {
-      console.error("Failed to load users:", err);
+      console.error(err);
     } finally {
       setSubLoading(false);
     }
@@ -165,13 +166,13 @@ export default function AdminPanel({ _user, onShowNotification, adminSubView, on
   const fetchVerificationRequests = async () => {
     setSubLoading(true);
     try {
-      const res = await fetch('/api/admin/verification-requests');
+      const res = await apiFetch('/api/admin/verification-requests');
       if (res.ok) {
         const data = await res.json();
         setVerificationRequests(data);
       }
     } catch (err) {
-      console.error("Failed to load requests:", err);
+      console.error(err);
     } finally {
       setSubLoading(false);
     }
@@ -179,13 +180,13 @@ export default function AdminPanel({ _user, onShowNotification, adminSubView, on
 
   const fetchVerificationLogs = async () => {
     try {
-      const res = await fetch('/api/admin/verification-logs');
+      const res = await apiFetch('/api/admin/verification-logs');
       if (res.ok) {
         const data = await res.json();
         setVerificationLogs(data);
       }
     } catch (err) {
-      console.error("Failed to load verification logs:", err);
+      console.error(err);
     }
   };
 
@@ -193,50 +194,50 @@ export default function AdminPanel({ _user, onShowNotification, adminSubView, on
 
   const fetchTemplates = async () => {
     try {
-      const res = await fetch('/api/admin/templates');
+      const res = await apiFetch('/api/admin/templates');
       if (res.ok) {
         const data = await res.json();
         setBadgeTemplates(data);
       }
     } catch (err) {
-      console.error("Failed to load templates:", err);
+      console.error(err);
     }
   };
 
   const fetchCollections = async () => {
     try {
-      const res = await fetch('/api/admin/collections');
+      const res = await apiFetch('/api/admin/collections');
       if (res.ok) {
         const data = await res.json();
         setCollections(data);
       }
     } catch (err) {
-      console.error("Failed to load collections:", err);
+      console.error(err);
     }
   };
 
   const fetchRevokedCredentials = async () => {
     try {
-      const res = await fetch('/api/admin/revoked');
+      const res = await apiFetch('/api/admin/revoked');
       if (res.ok) {
         const data = await res.json();
         setRevokedCredentials(data);
       }
     } catch (err) {
-      console.error("Failed to load revoked credentials:", err);
+      console.error(err);
     }
   };
 
   const fetchCatalogBadges = async () => {
     setCatalogLoading(true);
     try {
-      const res = await fetch('/api/admin/badge-catalog');
+      const res = await apiFetch('/api/admin/badge-catalog');
       if (res.ok) {
         const data = await res.json();
         setCatalogBadges(data);
       }
     } catch (err) {
-      console.error("Failed to load catalog badges:", err);
+      console.error(err);
     } finally {
       setCatalogLoading(false);
     }
@@ -244,7 +245,7 @@ export default function AdminPanel({ _user, onShowNotification, adminSubView, on
 
   const handleToggleCatalogVisibility = async (id, title, currentHidden) => {
     try {
-      const res = await fetch(`/api/admin/badge-catalog/${id}/toggle-visibility`, {
+      const res = await apiFetch(`/api/admin/badge-catalog/${id}/toggle-visibility`, {
         method: 'PATCH'
       });
       if (res.ok) {

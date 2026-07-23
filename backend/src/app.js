@@ -16,6 +16,9 @@ const requireAuth = require("./middleware/auth.middleware");
 const errorMiddleware = require("./middleware/error.middleware");
 
 const app = express();
+app.set("trust proxy", 1);
+
+const isProd = process.env.NODE_ENV === "production" || process.env.AZURE_HTTP_USER_AGENT !== undefined;
 
 // Allowed Origins for CORS
 const allowedOrigins = [
@@ -55,7 +58,8 @@ app.use(
     resave: false,
     saveUninitialized: false,
     cookie: {
-      secure: false, // Set to true if running over HTTPS behind proxy
+      secure: isProd,
+      sameSite: isProd ? "none" : "lax",
       httpOnly: true,
       maxAge: 24 * 60 * 60 * 1000 // 24 Hours
     }
