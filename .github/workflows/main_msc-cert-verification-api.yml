@@ -74,3 +74,4 @@ jobs:
           app-name: msc-cert-verification-api
           slot-name: Production
           package: .
+          startup-command: 'npm start'
