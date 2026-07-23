@@ -8,6 +8,14 @@ class CredentialRepository {
     });
   }
 
+  async update(id, data) {
+    if (!id) return null;
+    return await prisma.credential.update({
+      where: { id },
+      data
+    });
+  }
+
   async findBadgeById(id) {
     if (!id) return null;
     return await prisma.credential.findFirst({

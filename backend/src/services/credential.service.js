@@ -152,6 +152,17 @@ class CredentialService {
         } catch (e) {
           console.warn('Email dispatch warning:', e.message);
         }
+      } else {
+        credId = alreadyIssued.id;
+        await credentialRepository.update(credId, {
+          recipient_name: p.name,
+          title,
+          category,
+          description,
+          badge_icon: badgeIcon,
+          skills_list: skillsList,
+          score
+        });
       }
 
       resultsLog.push({
