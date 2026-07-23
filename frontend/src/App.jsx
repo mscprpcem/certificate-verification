@@ -1496,29 +1496,23 @@ export default function App() {
                             >
                               <option value="">Select Event</option>
                               {(() => {
-                                let list = allEventsList.length > 0 ? allEventsList : null;
+                                let list = [...allEventsList];
 
-                                if (!list && searchYear) {
-                                  list = dbEventsByYear?.[searchYear] || EVENTS_BY_YEAR?.[searchYear];
+                                if (searchYear && dbEventsByYear?.[searchYear]) {
+                                  list = [...list, ...dbEventsByYear[searchYear]];
+                                } else if (dbEventsByYear) {
+                                  Object.values(dbEventsByYear).forEach(arr => {
+                                    if (Array.isArray(arr)) list.push(...arr);
+                                  });
                                 }
 
-                                if (!list || list.length === 0) {
-                                  list = [
-                                    'Spark26 Quiz',
-                                    'Amit',
-                                    'test',
-                                    'BBBBB',
-                                    'ABCD',
-                                    'aaaaaaaaaaaaa',
-                                    'Copilot Dev Days',
-                                    'GitLit — The Diwali Code Fest',
-                                    '.NET Conf 2025 Amravati',
-                                    'Microsoft Azure Cloud Specialist Workshop',
-                                    'AI & LLM Integration Bootcamp'
-                                  ];
-                                }
+                                Object.values(EVENTS_BY_YEAR).forEach(arr => {
+                                  if (Array.isArray(arr)) list.push(...arr);
+                                });
 
-                                return Array.from(new Set(list)).map((evt) => (
+                                const uniqueEvents = Array.from(new Set(list.filter(Boolean)));
+
+                                return uniqueEvents.map((evt) => (
                                   <option key={evt} value={evt}>{evt}</option>
                                 ));
                               })()}

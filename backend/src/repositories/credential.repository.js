@@ -55,6 +55,49 @@ class CredentialRepository {
     });
   }
 
+  async getPublicEvents() {
+    const credentials = await prisma.credential.findMany({
+      select: {
+        domain: true,
+        title: true,
+        issue_date: true,
+        created_at: true
+      }
+    });
+
+    const eventsSet = new Set();
+    const eventsByYear = {};
+
+    credentials.forEach(c => {
+      let eventName = c.domain || c.title;
+      if (!eventName) return;
+
+      eventName = eventName.replace(/ - (Certificate of Participation|1st Place Winner|Runner-Up.*|Top 10 Merit Certificate)$/i, '').trim();
+
+      eventsSet.add(eventName);
+
+      let year = '2026';
+      if (c.issue_date && /\b(202\d)\b/.test(c.issue_date)) {
+        const match = c.issue_date.match(/\b(202\d)\b/);
+        if (match) year = match[1];
+      } else if (c.created_at) {
+        year = new Date(c.created_at).getFullYear().toString();
+      }
+
+      if (!eventsByYear[year]) {
+        eventsByYear[year] = [];
+      }
+      if (!eventsByYear[year].includes(eventName)) {
+        eventsByYear[year].push(eventName);
+      }
+    });
+
+    return {
+      events: Array.from(eventsSet),
+      eventsByYear
+    };
+  }
+
   async findByRecipientNameAndEvent(name, year, eventName) {
     const cleanName = (name || '').toLowerCase().trim();
     const cleanEvent = (eventName || '').toLowerCase().trim();
