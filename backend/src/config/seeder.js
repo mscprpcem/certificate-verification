@@ -1,7 +1,31 @@
+const path = require("path");
+const { execSync } = require("child_process");
 const bcrypt = require("bcryptjs");
 const prisma = require("./database");
 
+function ensureDbSchema() {
+  try {
+    console.log("Ensuring database tables exist via Prisma schema sync...");
+    let prismaCliPath;
+    try {
+      prismaCliPath = require.resolve("prisma/build/index.js");
+    } catch (resolveErr) {
+      console.warn("Prisma CLI module not found for schema sync:", resolveErr.message);
+      return;
+    }
+    const schemaPath = path.join(__dirname, "../../prisma/schema.prisma");
+    execSync(`node "${prismaCliPath}" db push --schema="${schemaPath}" --accept-data-loss`, {
+      stdio: "inherit",
+      env: process.env
+    });
+    console.log("Database schema synced successfully.");
+  } catch (err) {
+    console.warn("Database schema sync warning:", err.message);
+  }
+}
+
 async function seedInitialData() {
+  ensureDbSchema();
   try {
     // 1. Seed Admin User (from env vars or defaults)
     const adminCount = await prisma.user.count({ where: { role: "admin" } });

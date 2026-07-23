@@ -34,6 +34,18 @@ async function seedAdmin() {
   console.log(`   Password: ${"*".repeat(password.length)}\n`);
 
   try {
+    const { execSync } = require("child_process");
+    try {
+      const prismaCliPath = require.resolve("prisma/build/index.js");
+      const schemaPath = path.join(__dirname, "../prisma/schema.prisma");
+      execSync(`node "${prismaCliPath}" db push --schema="${schemaPath}" --accept-data-loss`, {
+        stdio: "inherit",
+        env: process.env
+      });
+    } catch (pushErr) {
+      console.warn("Schema push warning:", pushErr.message);
+    }
+
     await prisma.$connect();
 
     // Check if admin already exists
