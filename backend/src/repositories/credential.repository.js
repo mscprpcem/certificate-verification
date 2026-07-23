@@ -88,9 +88,36 @@ class CredentialRepository {
     const eventsByYear = {};
     const allEventsSet = new Set();
 
+    // Default curated & template events
+    const defaultEvents = [
+      "Copilot Dev Days",
+      "GitLit — The Diwali Code Fest",
+      ".NET Conf 2025 Amravati",
+      "Microsoft Azure Cloud Specialist Workshop",
+      "AI & LLM Integration Bootcamp"
+    ];
+    defaultEvents.forEach(e => allEventsSet.add(e));
+
     templates.forEach(t => {
       if (t.title) allEventsSet.add(t.title);
     });
+
+    // Fetch live & completed quizzes from Quiz Platform if accessible
+    try {
+      const quizPlatformUrl = process.env.QUIZ_PLATFORM_URL || "http://localhost:5000";
+      const quizRes = await fetch(`${quizPlatformUrl}/api/quizzes/public`);
+      if (quizRes.ok) {
+        const quizzes = await quizRes.json();
+        if (Array.isArray(quizzes)) {
+          quizzes.forEach(q => {
+            const name = q.event_name || q.title;
+            if (name) allEventsSet.add(name);
+          });
+        }
+      }
+    } catch (e) {
+      // Quiz platform quiet fallback
+    }
 
     creds.forEach(c => {
       const name = c.title || c.domain;
@@ -108,6 +135,13 @@ class CredentialRepository {
 
       if (!eventsByYear[yr]) eventsByYear[yr] = new Set();
       eventsByYear[yr].add(name);
+    });
+
+    // Ensure all synced events are present in current and default year keys
+    const currentYr = new Date().getFullYear().toString();
+    ["2026", "2025", "2024", currentYr].forEach(yr => {
+      if (!eventsByYear[yr]) eventsByYear[yr] = new Set();
+      allEventsSet.forEach(e => eventsByYear[yr].add(e));
     });
 
     const formattedEventsByYear = {};
