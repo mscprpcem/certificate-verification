@@ -38,21 +38,24 @@ async function seedInitialData() {
   }
 
   try {
-    // 1. Seed Admin User (from env vars or defaults)
-    const adminCount = await prisma.user.count({ where: { role: "admin" } });
-    if (adminCount === 0) {
-      const adminEmail = (process.env.INITIAL_ADMIN_EMAIL || "admin@mscprpcem.tech").toLowerCase().trim();
-      const adminPassword = process.env.INITIAL_ADMIN_PASSWORD || "admin123";
-      const adminName = process.env.INITIAL_ADMIN_NAME || "MSC Club Admin";
+    // 1. Seed & Sync Admin Users
+    const defaultAdmins = [
+      { email: "admin@mscprpcem.tech", name: "MSC Club Admin", password: "admin123", username: "admin" },
+      { email: "admin@microsoftclub.edu", name: "MSC Admin", password: "Admin@123", username: "mscadmin" }
+    ];
 
-      console.log(`No admin found. Creating initial admin: ${adminEmail}`);
-      const adminHash = await bcrypt.hash(adminPassword, 10);
-
-      await prisma.user.create({
-        data: {
-          name: adminName,
-          username: "admin",
-          email: adminEmail,
+    for (const a of defaultAdmins) {
+      const adminHash = await bcrypt.hash(a.password, 10);
+      await prisma.user.upsert({
+        where: { email: a.email },
+        update: {
+          password_hash: adminHash,
+          role: "admin"
+        },
+        create: {
+          name: a.name,
+          username: a.username,
+          email: a.email,
           password_hash: adminHash,
           role: "admin",
           bio: "MSC PRPCEM Administrator",
@@ -61,8 +64,7 @@ async function seedInitialData() {
           level: "Ambassador"
         }
       });
-
-      console.log(`Initial admin account created: ${adminEmail}`);
+      console.log(`Synced admin account: ${a.email}`);
     }
 
     // 2. Seed Demo Student (only if no users exist besides admin)

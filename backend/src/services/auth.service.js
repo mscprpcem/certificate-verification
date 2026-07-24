@@ -54,8 +54,16 @@ class AuthService {
     return await userRepository.findById(userId);
   }
 
-  async login(email, password) {
-    const user = await userRepository.findByEmail(email);
+  async login(emailOrUsername, password) {
+    if (!emailOrUsername || !password) {
+      throw new Error("Email and password are required.");
+    }
+    const input = emailOrUsername.toLowerCase().trim();
+    let user = await userRepository.findByEmail(input);
+    if (!user) {
+      user = await userRepository.findByUsername(input);
+    }
+
     if (!user || !user.password_hash) {
       throw new Error("Invalid email or password.");
     }
