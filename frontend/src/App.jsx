@@ -144,8 +144,9 @@ export default function App() {
     // Direct Quiz Platform Client-Side Fallback fetch
     try {
       const quizPlatformUrls = [
-        "https://quiz.mscprpcem.tech/api/quizzes/public",
-        "http://localhost:5000/api/quizzes/public"
+        "http://localhost:5000/api/quizzes/public",
+        "http://127.0.0.1:5000/api/quizzes/public",
+        "https://quiz.mscprpcem.tech/api/quizzes/public"
       ];
       for (const qUrl of quizPlatformUrls) {
         try {
@@ -153,8 +154,15 @@ export default function App() {
           if (qRes.ok) {
             const quizList = await qRes.json();
             if (Array.isArray(quizList) && quizList.length > 0) {
-              const quizNames = quizList.map(q => q.event_name || q.title).filter(Boolean);
-              setAllEventsList(prev => Array.from(new Set([...prev, ...quizNames])));
+              const quizNames = [];
+              quizList.forEach(q => {
+                if (q.title) quizNames.push(q.title.trim());
+                if (q.event_name) quizNames.push(q.event_name.trim());
+                if (q.title && q.event_name && q.title.trim() !== q.event_name.trim()) {
+                  quizNames.push(`${q.event_name.trim()} - ${q.title.trim()}`);
+                }
+              });
+              setAllEventsList(prev => Array.from(new Set([...prev, ...quizNames.filter(Boolean)])));
               break;
             }
           }

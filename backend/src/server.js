@@ -1,5 +1,5 @@
-const app = require("./app");
 const env = require("./config/env");
+const app = require("./app");
 const prisma = require("./config/database");
 const { seedInitialData } = require("./config/seeder");
 

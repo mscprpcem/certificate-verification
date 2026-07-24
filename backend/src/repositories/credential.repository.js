@@ -189,9 +189,9 @@ class CredentialRepository {
     // Fetch live & completed quizzes from Quiz Platform URLs
     const quizUrls = [
       process.env.QUIZ_PLATFORM_URL,
-      "https://quiz.mscprpcem.tech",
       "http://localhost:5000",
-      "http://127.0.0.1:5000"
+      "http://127.0.0.1:5000",
+      "https://quiz.mscprpcem.tech"
     ].filter(Boolean);
 
     for (const quizUrl of quizUrls) {
@@ -200,10 +200,13 @@ class CredentialRepository {
         const quizRes = await fetch(`${cleanUrl}/api/quizzes/public`, { signal: AbortSignal.timeout(3000) });
         if (quizRes.ok) {
           const quizzes = await quizRes.json();
-          if (Array.isArray(quizzes)) {
+          if (Array.isArray(quizzes) && quizzes.length > 0) {
             quizzes.forEach(q => {
-              const name = q.event_name || q.title;
-              if (name && name.trim()) allEventsSet.add(name.trim());
+              if (q.title && q.title.trim()) allEventsSet.add(q.title.trim());
+              if (q.event_name && q.event_name.trim()) allEventsSet.add(q.event_name.trim());
+              if (q.title && q.event_name && q.title.trim() !== q.event_name.trim()) {
+                allEventsSet.add(`${q.event_name.trim()} - ${q.title.trim()}`);
+              }
             });
             break;
           }

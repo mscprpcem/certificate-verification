@@ -48,9 +48,12 @@ class CredentialService {
     }
   }
 
-  async publishQuizResults(quizTitle, participants, publishDate, rules) {
+  async publishQuizResults(quizTitle, participants, publishDate, rules, altEventName = null) {
     const dateStr = publishDate || new Date().toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
     const resultsLog = [];
+    const targetDomain = (altEventName && altEventName.trim() && altEventName !== quizTitle)
+      ? `${quizTitle} (${altEventName.trim()})`
+      : quizTitle;
 
     for (const p of participants) {
       if (!p.name) continue;
@@ -122,7 +125,7 @@ class CredentialService {
 
       // Check duplicate issuance for same quiz and title
       const existing = await credentialRepository.findByEmail(normEmail);
-      const alreadyIssued = existing.find(c => c.title === title || (c.domain === quizTitle && c.type === credentialType));
+      const alreadyIssued = existing.find(c => c.title === title || (c.domain === quizTitle && c.type === credentialType) || (c.domain === targetDomain && c.type === credentialType));
 
       let credId = alreadyIssued ? alreadyIssued.id : null;
 
@@ -138,7 +141,7 @@ class CredentialService {
           type: credentialType,
           title,
           category,
-          domain: quizTitle,
+          domain: targetDomain,
           issue_date: dateStr,
           description,
           badge_icon: badgeIcon,

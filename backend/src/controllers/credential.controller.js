@@ -44,8 +44,9 @@ class CredentialController {
         return res.status(401).json({ error: "Unauthorized key" });
       }
 
-      const { event, attendees, quizTitle, participants, publishDate, rules } = req.body;
-      const title = event?.title || event?.eventName || quizTitle || "MSC Quiz Session";
+      const { event, attendees, quizTitle, eventName, participants, publishDate, rules } = req.body;
+      const title = event?.title || quizTitle || event?.eventName || eventName || "MSC Quiz Session";
+      const altEventName = event?.eventName || eventName || (event?.title ? quizTitle : null);
       const list = attendees || participants || [];
 
       if (!list || !Array.isArray(list)) {
@@ -56,7 +57,7 @@ class CredentialController {
         ? new Date(event.date).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })
         : publishDate;
 
-      const records = await credentialService.publishQuizResults(title, list, dateStr, rules);
+      const records = await credentialService.publishQuizResults(title, list, dateStr, rules, altEventName);
       res.json({
         success: true,
         message: `Processed ${records.length} certificate/badge records for event "${title}".`,
