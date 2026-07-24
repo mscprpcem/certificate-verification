@@ -1372,7 +1372,7 @@ export default function App() {
                 <div className="metric-icon-box">
                   <i className="fa-solid fa-certificate"></i>
                 </div>
-                <div className="metric-number">{platformMetrics.certificatesIssued || 24}</div>
+                <div className="metric-number">{platformMetrics.certificatesIssued ?? 0}</div>
                 <div className="metric-label">Certificates Issued</div>
               </div>
 
@@ -1380,7 +1380,7 @@ export default function App() {
                 <div className="metric-icon-box">
                   <i className="fa-solid fa-award"></i>
                 </div>
-                <div className="metric-number">{platformMetrics.badgesIssued || 18}</div>
+                <div className="metric-number">{platformMetrics.badgesIssued ?? 0}</div>
                 <div className="metric-label">Badges Awarded</div>
               </div>
 
@@ -1388,7 +1388,7 @@ export default function App() {
                 <div className="metric-icon-box">
                   <i className="fa-solid fa-users"></i>
                 </div>
-                <div className="metric-number">{platformMetrics.studentsCount || 12}</div>
+                <div className="metric-number">{platformMetrics.studentsCount ?? 0}</div>
                 <div className="metric-label">Students Registered</div>
               </div>
 

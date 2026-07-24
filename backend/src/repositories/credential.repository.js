@@ -360,21 +360,34 @@ class CredentialRepository {
 
   async getCertificatesCount() {
     return await prisma.credential.count({
-      where: { type: 'certificate' }
+      where: {
+        OR: [
+          { type: 'certificate' },
+          { type: 'Certificate' },
+          { type: 'CERTIFICATE' }
+        ]
+      }
     });
   }
 
   async getBadgesCount() {
     return await prisma.credential.count({
-      where: { type: 'badge' }
+      where: {
+        OR: [
+          { type: 'badge' },
+          { type: 'Badge' },
+          { type: 'BADGE' }
+        ]
+      }
     });
   }
 
   async getUniqueStudentsCount() {
-    const res = await prisma.credential.groupBy({
+    const usersCount = await prisma.user.count({ where: { role: 'student' } });
+    const credGroup = await prisma.credential.groupBy({
       by: ['recipient_email']
     });
-    return res.length;
+    return Math.max(usersCount, credGroup.length);
   }
 
   async findSuggestions(credType, query) {
