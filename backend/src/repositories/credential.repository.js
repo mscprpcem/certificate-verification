@@ -217,12 +217,6 @@ class CredentialRepository {
     }
 
     creds.forEach(c => {
-      const titleName = c.title ? c.title.trim() : null;
-      const domainName = c.domain ? c.domain.trim() : null;
-
-      if (titleName) allEventsSet.add(titleName);
-      if (domainName) allEventsSet.add(domainName);
-
       let yr = "2026";
       if (c.issue_date) {
         const yearMatch = c.issue_date.match(/\b(202\d)\b/);
@@ -231,9 +225,31 @@ class CredentialRepository {
         yr = new Date(c.created_at).getFullYear().toString();
       }
 
-      if (!eventsByYear[yr]) eventsByYear[yr] = new Set();
-      if (titleName) eventsByYear[yr].add(titleName);
-      if (domainName) eventsByYear[yr].add(domainName);
+      const addEvent = (name) => {
+        if (!name || !name.trim()) return;
+        const clean = name.trim();
+        allEventsSet.add(clean);
+        if (!eventsByYear[yr]) eventsByYear[yr] = new Set();
+        eventsByYear[yr].add(clean);
+      };
+
+      const titleName = c.title ? c.title.trim() : null;
+      const domainName = c.domain ? c.domain.trim() : null;
+
+      if (titleName) {
+        addEvent(titleName);
+        const baseTitle = titleName.replace(/\s*-\s*(Certificate of Participation|1st Place Winner|Runner-Up.*|Top 10 Merit Certificate|Badge).*$/i, '').trim();
+        if (baseTitle) addEvent(baseTitle);
+      }
+
+      if (domainName) {
+        addEvent(domainName);
+        const parenMatch = domainName.match(/^([^(]+)(?:\(([^)]+)\))?/);
+        if (parenMatch) {
+          if (parenMatch[1]) addEvent(parenMatch[1]);
+          if (parenMatch[2]) addEvent(parenMatch[2]);
+        }
+      }
     });
 
     // Ensure all synced events are present in current and default year keys

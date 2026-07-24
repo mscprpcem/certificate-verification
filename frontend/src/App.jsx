@@ -160,6 +160,7 @@ export default function App() {
                 if (q.event_name) quizNames.push(q.event_name.trim());
                 if (q.title && q.event_name && q.title.trim() !== q.event_name.trim()) {
                   quizNames.push(`${q.event_name.trim()} - ${q.title.trim()}`);
+                  quizNames.push(`${q.title.trim()} (${q.event_name.trim()})`);
                 }
               });
               setAllEventsList(prev => Array.from(new Set([...prev, ...quizNames.filter(Boolean)])));
